@@ -93,8 +93,11 @@ function Sidebar() {
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-sidebar flex-col border-r border-white/5 bg-vv-surface/80 backdrop-blur-xl">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-white/5 px-5">
-        <div className="relative h-8 w-8 rounded-lg bg-gradient-to-br from-accent to-purple-400 shadow-md shadow-accent/30">
+        <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-purple-400 shadow-md shadow-accent/30">
           <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
+          <svg className="relative ml-0.5 h-3.5 w-3.5 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
         </div>
         <span className="text-base font-bold tracking-tight">VideoViber</span>
       </div>

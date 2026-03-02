@@ -55,7 +55,7 @@ const config: Config = {
                 },
             },
             fontFamily: {
-                sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                sans: ['var(--font-outfit)', 'system-ui', '-apple-system', 'sans-serif'],
                 mono: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],
             },
             fontSize: {

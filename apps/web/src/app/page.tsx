@@ -25,8 +25,11 @@ export default function LandingPage() {
       <header className="glass-strong fixed top-0 z-50 w-full border-b border-white/5">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="relative h-9 w-9 rounded-xl bg-gradient-to-br from-accent to-purple-400 shadow-lg shadow-accent/30">
+            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-purple-400 shadow-lg shadow-accent/30">
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent" />
+              <svg className="relative ml-0.5 h-4 w-4 text-white drop-shadow-md" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
             </div>
             <span className="text-lg font-bold tracking-tight">VideoViber</span>
           </div>
