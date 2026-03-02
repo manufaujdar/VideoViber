@@ -1,8 +1,24 @@
 import Link from 'next/link';
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'VideoViber',
+  applicationCategory: 'MultimediaApplication',
+  description:
+    'Agentic spec-driven video workspace. Turn vague creative intent into an editable first cut using multiple AI video providers.',
+  operatingSystem: 'Web',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
 export default function LandingPage() {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ─── Background Effects ─────────────────────────── */}
       <div className="pointer-events-none fixed inset-0">
         {/* Top-left accent glow */}
