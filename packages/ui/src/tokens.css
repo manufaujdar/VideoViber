@@ -1,0 +1,108 @@
+/* ─────────────────────────────────────────────────────────────
+ * VideoViber Design Tokens
+ *
+ * Single source of truth for the design system.
+ * Import in apps/web globals.css or any package that needs tokens.
+ * ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* ─── Background ─────────────────────────────────────── */
+  --vv-bg-base: #0a0a0b;
+  --vv-bg-surface: #141416;
+  --vv-bg-elevated: #1c1c1f;
+  --vv-bg-overlay: #242428;
+  --vv-bg-hover: #2a2a2f;
+
+  /* ─── Border ─────────────────────────────────────────── */
+  --vv-border-subtle: #2a2a2e;
+  --vv-border-default: #3a3a3f;
+  --vv-border-strong: #4a4a50;
+
+  /* ─── Text ───────────────────────────────────────────── */
+  --vv-text-primary: #fafafa;
+  --vv-text-secondary: #a1a1aa;
+  --vv-text-muted: #71717a;
+  --vv-text-disabled: #52525b;
+
+  /* ─── Accent ─────────────────────────────────────────── */
+  --vv-accent: #7c3aed;
+  --vv-accent-hover: #8b5cf6;
+  --vv-accent-muted: rgba(124, 58, 237, 0.15);
+  --vv-accent-subtle: rgba(124, 58, 237, 0.08);
+
+  /* ─── Status ─────────────────────────────────────────── */
+  --vv-status-success: #10b981;
+  --vv-status-success-muted: rgba(16, 185, 129, 0.15);
+  --vv-status-warning: #f59e0b;
+  --vv-status-warning-muted: rgba(245, 158, 11, 0.15);
+  --vv-status-error: #ef4444;
+  --vv-status-error-muted: rgba(239, 68, 68, 0.15);
+  --vv-status-info: #0ea5e9;
+  --vv-status-info-muted: rgba(14, 165, 233, 0.15);
+
+  /* ─── Generation State Colors ────────────────────────── */
+  --vv-state-draft: #6b7280;
+  --vv-state-planned: #8b5cf6;
+  --vv-state-queued: #f59e0b;
+  --vv-state-submitted: #f59e0b;
+  --vv-state-processing: #3b82f6;
+  --vv-state-completed: #10b981;
+  --vv-state-failed: #ef4444;
+  --vv-state-canceled: #6b7280;
+  --vv-state-expired: #6b7280;
+
+  /* ─── Spacing ────────────────────────────────────────── */
+  --vv-space-1: 4px;
+  --vv-space-2: 8px;
+  --vv-space-3: 12px;
+  --vv-space-4: 16px;
+  --vv-space-5: 20px;
+  --vv-space-6: 24px;
+  --vv-space-8: 32px;
+  --vv-space-10: 40px;
+  --vv-space-12: 48px;
+  --vv-space-16: 64px;
+
+  /* ─── Radii ──────────────────────────────────────────── */
+  --vv-radius-sm: 6px;
+  --vv-radius-md: 8px;
+  --vv-radius-lg: 12px;
+  --vv-radius-xl: 16px;
+  --vv-radius-full: 9999px;
+
+  /* ─── Shadows ────────────────────────────────────────── */
+  --vv-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --vv-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --vv-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+  --vv-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+
+  /* ─── Typography ─────────────────────────────────────── */
+  --vv-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --vv-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --vv-font-display: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ─── Font Sizes ─────────────────────────────────────── */
+  --vv-text-xs: 0.75rem;    /* 12px */
+  --vv-text-sm: 0.8125rem;  /* 13px */
+  --vv-text-base: 0.875rem; /* 14px */
+  --vv-text-lg: 1.125rem;   /* 18px */
+  --vv-text-xl: 1.5rem;     /* 24px */
+  --vv-text-2xl: 2.25rem;   /* 36px */
+  --vv-text-3xl: 3rem;      /* 48px */
+
+  /* ─── Sidebar ────────────────────────────────────────── */
+  --vv-sidebar-width: 240px;
+  --vv-sidebar-collapsed: 64px;
+
+  /* ─── Transitions ────────────────────────────────────── */
+  --vv-transition-fast: 150ms ease;
+  --vv-transition-normal: 250ms ease;
+  --vv-transition-slow: 350ms ease;
+
+  /* ─── Z-Index ────────────────────────────────────────── */
+  --vv-z-dropdown: 50;
+  --vv-z-sticky: 100;
+  --vv-z-overlay: 200;
+  --vv-z-modal: 300;
+  --vv-z-toast: 400;
+}

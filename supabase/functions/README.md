@@ -1,0 +1,10 @@
+-- ═══════════════════════════════════════════════════════════
+-- Supabase Edge Functions Directory
+-- ═══════════════════════════════════════════════════════════
+-- Edge functions will be added here for:
+--   • Provider webhook handlers (generation callbacks)
+--   • API key encryption/decryption helpers
+--   • Job status update endpoints
+--
+-- Each function goes in its own directory:
+--   supabase/functions/<function-name>/index.ts
