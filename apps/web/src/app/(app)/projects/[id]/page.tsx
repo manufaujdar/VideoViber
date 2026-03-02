@@ -11,7 +11,7 @@ export default function ProjectWorkspacePage({
   params: { id: string };
 }) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === params.id));
-  const updateShot = useAppStore((s) => s.updateShot);
+
   const addGeneration = useAppStore((s) => s.addGeneration);
   const updateProject = useAppStore((s) => s.updateProject);
 

@@ -17,7 +17,7 @@ export default function TimelineEditorPage({
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [history, setHistory] = useState<string[][]>([]);
+  const [_history] = useState<string[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const completedShots = project?.shots.filter((s) => s.status === 'completed') ?? [];
