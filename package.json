@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "build:web": "pnpm --filter @videoviber/web build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
@@ -32,8 +33,9 @@
       "prettier --write"
     ]
   },
-  "packageManager": "pnpm@9.1.0",
+  "packageManager": "pnpm@10.30.3",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x",
+    "pnpm": "10.x"
   }
 }

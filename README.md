@@ -48,7 +48,7 @@ VideoViber is not a thin wrapper around one video provider. It's a **structured 
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js ≥ 18, pnpm ≥ 9
+# Prerequisites: Node.js 20.x, pnpm 10.x
 
 # 1. Clone and install
 git clone https://github.com/your-org/VideoViber.git
@@ -92,6 +92,26 @@ VideoViber/
 │   └── seed/                 # Seed data
 ├── scripts/                  # Dev & build utilities
 └── .github/workflows/        # CI pipeline
+```
+
+---
+
+## Deployment (Vercel)
+
+This repo includes a root [`vercel.json`](vercel.json) with explicit Next.js + monorepo build settings:
+
+- `framework: nextjs`
+- `buildCommand: pnpm build:web` (builds `apps/web`)
+- `outputDirectory: null` (prevents stale static-site `public` output settings)
+
+Recommended CLI flow:
+
+```bash
+npx vercel@latest login
+npx vercel@latest link
+npx vercel@latest pull --yes --environment=production
+npx vercel@latest build --prod
+npx vercel@latest deploy --prebuilt --prod
 ```
 
 ---
