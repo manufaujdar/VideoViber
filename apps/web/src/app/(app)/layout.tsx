@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Toaster } from 'sonner';
 
 const navItems = [
   {
@@ -42,7 +43,7 @@ const navItems = [
   },
 ];
 
-const bottomNavItems = [
+const accountNavItems = [
   {
     href: '/settings',
     label: 'Settings',
@@ -91,8 +92,8 @@ function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-sidebar flex-col border-r border-white/5 bg-vv-surface/80 backdrop-blur-xl">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-white/5 px-5">
+      {/* Logo — clicks to home */}
+      <Link href="/" className="flex h-16 items-center gap-3 border-b border-white/5 px-5 transition-colors hover:bg-white/[0.02]">
         <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-purple-400 shadow-md shadow-accent/30">
           <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
           <svg className="relative ml-0.5 h-3.5 w-3.5 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24">
@@ -100,10 +101,10 @@ function Sidebar() {
           </svg>
         </div>
         <span className="text-base font-bold tracking-tight">VideoViber</span>
-      </div>
+      </Link>
 
       {/* Main Nav */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-vv-muted/60">
           Workspace
         </p>
@@ -111,17 +112,18 @@ function Sidebar() {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return <NavLink key={item.href} item={item} isActive={isActive} />;
         })}
+      </nav>
 
-        <div className="my-4 border-t border-white/5" />
-
+      {/* Account Section — pushed to bottom */}
+      <div className="border-t border-white/5 px-3 py-3">
         <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-vv-muted/60">
           Account
         </p>
-        {bottomNavItems.map((item) => {
+        {accountNavItems.map((item) => {
           const isActive = pathname === item.href;
           return <NavLink key={item.href} item={item} isActive={isActive} />;
         })}
-      </nav>
+      </div>
 
       {/* User */}
       <div className="border-t border-white/5 p-4">
@@ -133,9 +135,6 @@ function Sidebar() {
             <p className="truncate text-sm font-semibold">User</p>
             <p className="text-xs text-vv-muted">Free Plan</p>
           </div>
-          <svg className="h-4 w-4 text-vv-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-          </svg>
         </div>
       </div>
     </aside>
@@ -145,9 +144,7 @@ function Sidebar() {
 function TopBar() {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/5 bg-vv-base/60 px-6 backdrop-blur-xl">
-      <div className="text-sm text-vv-muted">
-        {/* Breadcrumbs slot */}
-      </div>
+      <div className="text-sm text-vv-muted" />
       <div className="flex items-center gap-3">
         <button className="flex h-8 w-8 items-center justify-center rounded-lg text-vv-muted transition-colors hover:bg-white/[0.03] hover:text-vv-primary">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -167,6 +164,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <TopBar />
         <main className="flex-1 p-6">{children}</main>
       </div>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#1c1c1f',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: '#fafafa',
+            fontSize: '13px',
+          },
+        }}
+      />
     </div>
   );
 }

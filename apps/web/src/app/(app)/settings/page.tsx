@@ -1,12 +1,28 @@
+'use client';
+
+import { useState } from 'react';
+import { useAppStore } from '@/app/store';
+import { toast } from 'sonner';
+
 export default function SettingsPage() {
+  const settings = useAppStore((s) => s.settings);
+  const updateSettings = useAppStore((s) => s.updateSettings);
+  const deleteAllProjects = useAppStore((s) => s.deleteAllProjects);
+
+  const [displayName, setDisplayName] = useState(settings.displayName);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const handleSave = () => {
+    updateSettings({ displayName: displayName.trim() });
+    toast.success('Settings saved');
+  };
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 animate-fade-in-up">
       <div>
         <div className="vv-badge bg-accent/10 text-accent mb-3">Account</div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-2 text-sm text-vv-secondary">
-          Manage your account and application preferences
-        </p>
+        <p className="mt-2 text-sm text-vv-secondary">Manage your account and application preferences</p>
       </div>
 
       {/* Profile */}
@@ -22,13 +38,14 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="vv-label">Display Name</label>
-            <input type="text" placeholder="Your name" className="vv-input w-full" />
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" className="vv-input w-full" />
           </div>
           <div className="space-y-2">
             <label className="vv-label">Email</label>
             <input type="email" placeholder="you@example.com" className="vv-input w-full opacity-60" disabled />
             <p className="text-xs text-vv-muted">Managed by your auth provider</p>
           </div>
+          <button onClick={handleSave} className="vv-btn-primary">Save Changes</button>
         </div>
       </div>
 
@@ -48,10 +65,10 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold">Default Provider</p>
               <p className="text-xs text-vv-muted">Used for new shot generations</p>
             </div>
-            <select className="vv-input w-full sm:w-40">
-              <option>Runway</option>
-              <option>Veo</option>
-              <option>Luma</option>
+            <select value={settings.defaultProvider} onChange={(e) => { updateSettings({ defaultProvider: e.target.value }); toast.success('Provider updated'); }} className="vv-input w-full sm:w-40">
+              <option value="runway">Runway</option>
+              <option value="veo">Veo</option>
+              <option value="luma">Luma</option>
             </select>
           </div>
           <div className="border-t border-white/5" />
@@ -60,10 +77,10 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold">Default Resolution</p>
               <p className="text-xs text-vv-muted">For exports</p>
             </div>
-            <select className="vv-input w-full sm:w-40">
-              <option>1080p</option>
-              <option>720p</option>
-              <option>4K</option>
+            <select value={settings.defaultResolution} onChange={(e) => { updateSettings({ defaultResolution: e.target.value }); toast.success('Resolution updated'); }} className="vv-input w-full sm:w-40">
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="4K">4K</option>
             </select>
           </div>
           <div className="border-t border-white/5" />
@@ -72,9 +89,10 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold">Auto-save</p>
               <p className="text-xs text-vv-muted">Save project changes automatically</p>
             </div>
-            <button className="vv-btn-secondary w-full sm:w-auto">
-              Enabled
-            </button>
+            <button
+              onClick={() => { updateSettings({ autoSave: !settings.autoSave }); toast.success(`Auto-save ${!settings.autoSave ? 'enabled' : 'disabled'}`); }}
+              className={`vv-btn-secondary w-full sm:w-auto ${settings.autoSave ? 'border-success/30 text-success' : ''}`}
+            >{settings.autoSave ? 'Enabled' : 'Disabled'}</button>
           </div>
         </div>
       </div>
@@ -89,18 +107,27 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-red-400">Danger Zone</h2>
-            <p className="text-sm text-vv-secondary">
-              These actions are irreversible.
-            </p>
+            <p className="text-sm text-vv-secondary">These actions are irreversible.</p>
           </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button className="rounded-lg border border-red-500/30 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all duration-200 hover:bg-red-500/10 hover:border-red-500/50">
-            Delete All Projects
-          </button>
-          <button className="rounded-lg border border-red-500/30 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all duration-200 hover:bg-red-500/10 hover:border-red-500/50">
-            Delete Account
-          </button>
+          {showDeleteConfirm === 'projects' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-400">Are you sure?</span>
+              <button onClick={() => { deleteAllProjects(); setShowDeleteConfirm(null); toast.success('All projects deleted'); }}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors">
+                Yes, Delete All
+              </button>
+              <button onClick={() => setShowDeleteConfirm(null)} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-vv-secondary hover:bg-white/5 transition-colors">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setShowDeleteConfirm('projects')}
+              className="rounded-lg border border-red-500/30 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all duration-200 hover:bg-red-500/10 hover:border-red-500/50">
+              Delete All Projects
+            </button>
+          )}
         </div>
       </div>
     </div>

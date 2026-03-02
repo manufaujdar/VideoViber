@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+import { useAppStore } from '@/app/store';
+import { toast } from 'sonner';
+
 const providers = [
   {
     id: 'runway',
     name: 'Runway',
     description: 'Gen-3 Alpha — High quality cinematic video generation',
     docsUrl: 'https://docs.runwayml.com/',
-    connected: false,
     gradient: 'from-violet-500/15 to-purple-500/15',
     letter: 'R',
   },
@@ -15,7 +18,6 @@ const providers = [
     name: 'Veo (Vertex AI)',
     description: "Google's video generation model via Vertex AI",
     docsUrl: 'https://cloud.google.com/vertex-ai/docs/generative-ai/video/overview',
-    connected: false,
     gradient: 'from-blue-500/15 to-cyan-500/15',
     letter: 'V',
   },
@@ -24,13 +26,34 @@ const providers = [
     name: 'Luma',
     description: 'Dream Machine — Fast, creative video generation',
     docsUrl: 'https://docs.lumalabs.ai/',
-    connected: false,
     gradient: 'from-emerald-500/15 to-green-500/15',
     letter: 'L',
   },
 ];
 
 export default function ApiKeysPage() {
+  const apiKeys = useAppStore((s) => s.apiKeys);
+  const saveApiKey = useAppStore((s) => s.saveApiKey);
+  const removeApiKey = useAppStore((s) => s.removeApiKey);
+
+  const [inputKeys, setInputKeys] = useState<Record<string, string>>({});
+
+  const handleSave = (providerId: string) => {
+    const key = inputKeys[providerId]?.trim();
+    if (!key || key.length < 8) {
+      toast.error('API key must be at least 8 characters');
+      return;
+    }
+    saveApiKey(providerId, key);
+    setInputKeys((prev) => ({ ...prev, [providerId]: '' }));
+    toast.success(`${providerId} API key saved`);
+  };
+
+  const handleRemove = (providerId: string) => {
+    removeApiKey(providerId);
+    toast.success(`${providerId} API key removed`);
+  };
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 animate-fade-in-up">
       <div>
@@ -52,8 +75,7 @@ export default function ApiKeysPage() {
           <div>
             <p className="text-sm font-semibold text-blue-400">BYOK — Bring Your Own Key</p>
             <p className="mt-1 text-sm leading-relaxed text-vv-secondary">
-              VideoViber does not proxy API calls or charge markups. You connect directly
-              with your provider accounts. API keys are encrypted and never logged.
+              VideoViber does not proxy API calls or charge markups. You connect directly with your provider accounts.
             </p>
           </div>
         </div>
@@ -61,60 +83,63 @@ export default function ApiKeysPage() {
 
       {/* Provider Cards */}
       <div className="space-y-4">
-        {providers.map((provider) => (
-          <div key={provider.id} className="vv-card-hover">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${provider.gradient} text-lg font-bold text-accent ring-1 ring-accent/10`}>
-                  {provider.letter}
+        {providers.map((provider) => {
+          const keyEntry = apiKeys.find((k) => k.provider === provider.id);
+          const isConnected = keyEntry?.connected ?? false;
+          return (
+            <div key={provider.id} className="vv-card-hover">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${provider.gradient} text-lg font-bold text-accent ring-1 ring-accent/10`}>
+                    {provider.letter}
+                  </div>
+                  <div>
+                    <h3 className="font-bold">{provider.name}</h3>
+                    <p className="mt-0.5 text-sm text-vv-secondary">{provider.description}</p>
+                    <a href={provider.docsUrl} target="_blank" rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover transition-colors">
+                      View API Docs
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                      </svg>
+                    </a>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold">{provider.name}</h3>
-                  <p className="mt-0.5 text-sm text-vv-secondary">{provider.description}</p>
-                  <a
-                    href={provider.docsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover transition-colors"
-                  >
-                    View API Docs
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
-                    </svg>
-                  </a>
+                <div className="flex items-center gap-2">
+                  {isConnected ? (
+                    <>
+                      <span className="vv-badge bg-success/10 text-success">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                        Connected
+                      </span>
+                      <span className="text-xs text-vv-muted font-mono">{keyEntry?.maskedKey}</span>
+                      <button onClick={() => handleRemove(provider.id)} className="vv-btn-ghost px-3 py-1.5 text-xs text-red-400 hover:text-red-300">
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <span className="vv-badge bg-white/5 text-vv-muted">Not connected</span>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {provider.connected ? (
-                  <>
-                    <span className="vv-badge bg-success/10 text-success">
-                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                      Connected
-                    </span>
-                    <button className="vv-btn-ghost px-3 py-1.5 text-xs">Edit</button>
-                  </>
-                ) : (
-                  <button className="vv-btn-secondary px-4 py-2 text-xs">
-                    Add Key
-                  </button>
-                )}
-              </div>
+              {/* Key Input */}
+              {!isConnected && (
+                <div className="mt-5 flex gap-3 border-t border-white/5 pt-5">
+                  <input
+                    type="password"
+                    value={inputKeys[provider.id] || ''}
+                    onChange={(e) => setInputKeys((prev) => ({ ...prev, [provider.id]: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave(provider.id)}
+                    placeholder={`Enter your ${provider.name} API key`}
+                    className="vv-input flex-1"
+                  />
+                  <button onClick={() => handleSave(provider.id)} className="vv-btn-primary">Save Key</button>
+                </div>
+              )}
             </div>
-
-            {/* Key Input */}
-            {!provider.connected && (
-              <div className="mt-5 flex gap-3 border-t border-white/5 pt-5">
-                <input
-                  type="password"
-                  placeholder={`Enter your ${provider.name} API key`}
-                  className="vv-input flex-1"
-                />
-                <button className="vv-btn-primary">Save Key</button>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Security Note */}
@@ -126,22 +151,12 @@ export default function ApiKeysPage() {
           <h3 className="text-sm font-bold text-vv-secondary">Security</h3>
         </div>
         <ul className="space-y-2 text-sm text-vv-muted">
-          <li className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            Keys encrypted with AES-256 before storage
-          </li>
-          <li className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            Keys never leave the server — API calls are server-side
-          </li>
-          <li className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            Only the last 4 characters shown for verification
-          </li>
-          <li className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            Revoke keys at any time
-          </li>
+          {['Keys encrypted with AES-256 before storage', 'Keys never leave the server — API calls are server-side', 'Only the last 4 characters shown for verification', 'Revoke keys at any time'].map((item) => (
+            <li key={item} className="flex items-center gap-2">
+              <svg className="h-3.5 w-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              {item}
+            </li>
+          ))}
         </ul>
       </div>
     </div>
