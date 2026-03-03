@@ -38,6 +38,11 @@ export const envSchema = z.object({
         .enum(['development', 'production', 'test'])
         .default('development'),
 
+    // ─── Cross-Platform Callback Overrides ───────────────
+    NEXT_PUBLIC_AUTH_REDIRECT_BASE_URL: z.string().min(1).optional(),
+    NEXT_PUBLIC_MOBILE_AUTH_REDIRECT_BASE_URL: z.string().min(1).optional(),
+    NEXT_PUBLIC_DESKTOP_AUTH_REDIRECT_BASE_URL: z.string().min(1).optional(),
+
     // ─── Gemini (Google AI) ─────────────────────────────
     GEMINI_API_KEY: z
         .string()

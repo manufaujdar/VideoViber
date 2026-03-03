@@ -1,0 +1,21 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.videoviber.app',
+  appName: 'VideoViber',
+  webDir: 'web-dist',
+  server: {
+    // Use hosted web runtime for Next.js SSR routes.
+    // Replace with your production domain.
+    url: 'https://video-viber.vercel.app',
+    cleartext: false,
+  },
+  ios: {
+    contentInset: 'always',
+  },
+  android: {
+    allowMixedContent: false,
+  },
+};
+
+export default config;

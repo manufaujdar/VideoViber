@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
 
 const configMessage =
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: buildAuthRedirectUrl('/login'),
     });
     setLoading(false);
 

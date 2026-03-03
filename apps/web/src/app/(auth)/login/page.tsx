@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
 
 const configMessage =
@@ -41,7 +42,7 @@ export default function LoginPage() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: buildAuthRedirectUrl('/dashboard'),
       },
     });
 

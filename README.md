@@ -162,6 +162,16 @@ See [`docs/prd/mvp-scope.md`](docs/prd/mvp-scope.md) for full details.
 
 ---
 
+## Cross-Platform Foundation
+
+This repo now includes a lightweight foundation for future mobile and desktop wrappers without changing current web deployment flow.
+
+- Architecture note: [`docs/architecture/cross-platform-foundation.md`](docs/architecture/cross-platform-foundation.md)
+- Mobile scaffold: `apps/mobile/`
+- Desktop scaffold: `apps/desktop/`
+
+---
+
 ## Success Metric
 
 **Time from vague idea to editable first cut < 10 minutes.**

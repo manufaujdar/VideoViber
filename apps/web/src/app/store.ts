@@ -16,6 +16,11 @@ export interface Shot {
   videoUrl: string | null;
   duration: number; // seconds
   order: number;
+  sourceType?: 'ai' | 'import';
+  assetId?: string | null;
+  sourceMimeType?: string | null;
+  sourceSizeBytes?: number | null;
+  importedAt?: string | null;
   createdAt: string;
 }
 
@@ -36,6 +41,11 @@ export interface Asset {
   type: 'image' | 'video' | 'reference';
   url: string; // data URL or blob URL
   size: number; // bytes
+  mimeType?: string;
+  duration?: number; // seconds for video/audio
+  storageMode?: 'data-url' | 'object-url' | 'remote-url';
+  projectId?: string | null;
+  volatile?: boolean;
   width?: number;
   height?: number;
   createdAt: string;
@@ -80,13 +90,13 @@ interface AppState {
   getProject: (id: string) => Project | undefined;
 
   // Shots
-  addShot: (projectId: string, shot: Omit<Shot, 'id' | 'createdAt'>) => void;
+  addShot: (projectId: string, shot: Omit<Shot, 'id' | 'createdAt'>) => string;
   updateShot: (projectId: string, shotId: string, updates: Partial<Shot>) => void;
   deleteShot: (projectId: string, shotId: string) => void;
 
   // Assets
   assets: Asset[];
-  addAsset: (a: Omit<Asset, 'id' | 'createdAt'>) => void;
+  addAsset: (a: Omit<Asset, 'id' | 'createdAt'>) => string;
   deleteAsset: (id: string) => void;
   updateAsset: (id: string, updates: Partial<Asset>) => void;
 
@@ -161,6 +171,7 @@ export const useAppStore = create<AppState>()(
             p.id === projectId ? { ...p, shots: [...p.shots, newShot], updatedAt: now() } : p
           ),
         }));
+        return newShot.id;
       },
 
       updateShot: (projectId, shotId, updates) =>
@@ -191,6 +202,7 @@ export const useAppStore = create<AppState>()(
       addAsset: (a) => {
         const asset: Asset = { ...a, id: uid(), createdAt: now() };
         set((s) => ({ assets: [asset, ...s.assets] }));
+        return asset.id;
       },
 
       deleteAsset: (id) => set((s) => ({ assets: s.assets.filter((a) => a.id !== id) })),

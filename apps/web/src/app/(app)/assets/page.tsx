@@ -1,9 +1,53 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAppStore } from '@/app/store';
+import { useAppStore, type Asset } from '@/app/store';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
+
+const IMAGE_DATA_URL_LIMIT_BYTES = 4 * 1024 * 1024;
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to read file'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readImageMetadata(url: string): Promise<{ width?: number; height?: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({});
+    img.src = url;
+  });
+}
+
+function readVideoMetadata(
+  url: string
+): Promise<{ duration?: number; width?: number; height?: number }> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      resolve({
+        duration: Number.isFinite(video.duration) ? video.duration : undefined,
+        width: video.videoWidth || undefined,
+        height: video.videoHeight || undefined,
+      });
+    };
+    video.onerror = () => resolve({});
+    video.src = url;
+  });
+}
 
 export default function AssetsPage() {
   const assets = useAppStore((s) => s.assets);
@@ -17,6 +61,7 @@ export default function AssetsPage() {
   const [search, setSearch] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const filteredAssets = assets.filter((a) => {
     if (filter === 'Images' && a.type !== 'image') return false;
@@ -27,17 +72,76 @@ export default function AssetsPage() {
   });
 
   const handleUpload = useCallback(
-    (files: FileList | File[]) => {
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const url = e.target?.result as string;
-          const type = file.type.startsWith('video/') ? 'video' : 'image';
-          addAsset({ name: file.name, type, url, size: file.size });
-          toast.success(`Uploaded "${file.name}"`);
-        };
-        reader.readAsDataURL(file);
-      });
+    async (files: FileList | File[]) => {
+      const incoming = Array.from(files);
+      if (incoming.length === 0) return;
+      setUploading(true);
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const file of incoming) {
+        let objectUrl: string | null = null;
+        try {
+          if (file.type.startsWith('video/')) {
+            objectUrl = URL.createObjectURL(file);
+            const metadata = await readVideoMetadata(objectUrl);
+            addAsset({
+              name: file.name,
+              type: 'video',
+              url: objectUrl,
+              size: file.size,
+              width: metadata.width,
+              height: metadata.height,
+              duration: metadata.duration,
+              mimeType: file.type || 'video/mp4',
+              storageMode: 'object-url',
+              volatile: true,
+            } satisfies Omit<Asset, 'id' | 'createdAt'>);
+            imported += 1;
+            continue;
+          }
+
+          if (file.type.startsWith('image/')) {
+            const useDataUrl = file.size <= IMAGE_DATA_URL_LIMIT_BYTES;
+            objectUrl = useDataUrl ? null : URL.createObjectURL(file);
+            const url = useDataUrl ? await fileToDataUrl(file) : objectUrl;
+            if (!url) {
+              throw new Error('Failed to load image URL');
+            }
+            const metadata = await readImageMetadata(url);
+            addAsset({
+              name: file.name,
+              type: 'image',
+              url,
+              size: file.size,
+              width: metadata.width,
+              height: metadata.height,
+              mimeType: file.type || 'image/jpeg',
+              storageMode: useDataUrl ? 'data-url' : 'object-url',
+              volatile: !useDataUrl,
+            } satisfies Omit<Asset, 'id' | 'createdAt'>);
+            imported += 1;
+            continue;
+          }
+
+          skipped += 1;
+        } catch {
+          if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+          }
+          skipped += 1;
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(`Imported ${imported} asset${imported > 1 ? 's' : ''}`);
+      }
+      if (skipped > 0) {
+        toast.warning(`Skipped ${skipped} file${skipped > 1 ? 's' : ''} (unsupported or unreadable)`);
+      }
+
+      setUploading(false);
     },
     [addAsset]
   );
@@ -50,8 +154,18 @@ export default function AssetsPage() {
     [handleUpload]
   );
 
+  const removeAsset = useCallback(
+    (asset: Asset) => {
+      if (asset.storageMode === 'object-url' && asset.url.startsWith('blob:')) {
+        URL.revokeObjectURL(asset.url);
+      }
+      deleteAsset(asset.id);
+    },
+    [deleteAsset]
+  );
+
   const handleBulkDelete = () => {
-    selected.forEach((id) => deleteAsset(id));
+    assets.filter((asset) => selected.has(asset.id)).forEach(removeAsset);
     toast.success(`Deleted ${selected.size} asset(s)`);
     setSelected(new Set());
   };
@@ -95,13 +209,14 @@ export default function AssetsPage() {
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
               />
             </svg>
-            Upload
+            {uploading ? 'Uploading...' : 'Upload'}
             <input
               type="file"
               multiple
               accept="image/*,video/*"
               onChange={(e) => e.target.files && handleUpload(e.target.files)}
               className="hidden"
+              disabled={uploading}
             />
           </label>
         </div>
@@ -268,17 +383,27 @@ export default function AssetsPage() {
               </button>
               {/* Thumbnail */}
               <div className="bg-vv-base mb-3 aspect-video overflow-hidden rounded-lg">
-                <MotionImage
-                  src={asset.url}
-                  alt={asset.name}
-                  width={640}
-                  height={360}
-                  unoptimized
-                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                  motionPreset="drift"
-                  motionSpeed="medium"
-                  motionDelayMs={index * 90}
-                />
+                {asset.type === 'video' ? (
+                  <video
+                    src={asset.url}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <MotionImage
+                    src={asset.url}
+                    alt={asset.name}
+                    width={640}
+                    height={360}
+                    unoptimized
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    motionPreset="drift"
+                    motionSpeed="medium"
+                    motionDelayMs={index * 90}
+                  />
+                )}
               </div>
               {/* Info */}
               {renaming === asset.id ? (
@@ -297,6 +422,7 @@ export default function AssetsPage() {
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-vv-muted text-xs capitalize">
                   {asset.type} · {formatSize(asset.size)}
+                  {asset.duration ? ` · ${asset.duration.toFixed(1)}s` : ''}
                 </span>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
@@ -323,7 +449,7 @@ export default function AssetsPage() {
                   </button>
                   <button
                     onClick={() => {
-                      deleteAsset(asset.id);
+                      removeAsset(asset);
                       toast.success('Asset deleted');
                     }}
                     className="text-vv-muted flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-red-500/10 hover:text-red-400"
@@ -385,7 +511,11 @@ export default function AssetsPage() {
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{asset.name}</p>
-                <p className="text-vv-muted text-xs capitalize">{asset.type}</p>
+                <p className="text-vv-muted text-xs capitalize">
+                  {asset.type}
+                  {asset.duration ? ` · ${asset.duration.toFixed(1)}s` : ''}
+                  {asset.storageMode === 'object-url' ? ' · session' : ''}
+                </p>
               </div>
               <span className="text-vv-muted shrink-0 text-xs">{formatSize(asset.size)}</span>
               <span className="text-vv-disabled shrink-0 text-xs">
@@ -393,7 +523,7 @@ export default function AssetsPage() {
               </span>
               <button
                 onClick={() => {
-                  deleteAsset(asset.id);
+                  removeAsset(asset);
                   toast.success('Deleted');
                 }}
                 className="text-vv-muted shrink-0 transition-colors hover:text-red-400"

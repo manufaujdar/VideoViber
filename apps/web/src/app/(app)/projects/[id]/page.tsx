@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { parsePlannerShots } from '@/lib/shot-planner';
 import { useAppStore } from '@/app/store';
@@ -20,13 +20,41 @@ async function readResponsePayload(response: Response) {
   }
 }
 
+const MIN_IMPORT_DURATION = 0.5;
+const MAX_IMPORT_DURATION = 60 * 60 * 6; // 6 hours
+
+function toImportedTitle(fileName: string) {
+  return fileName.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim() || 'Imported Clip';
+}
+
+function readVideoMetadata(url: string): Promise<{ duration: number; width?: number; height?: number }> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const rawDuration = Number.isFinite(video.duration) ? video.duration : 6;
+      resolve({
+        duration: Math.min(MAX_IMPORT_DURATION, Math.max(MIN_IMPORT_DURATION, rawDuration)),
+        width: video.videoWidth || undefined,
+        height: video.videoHeight || undefined,
+      });
+    };
+    video.onerror = () => reject(new Error('Unable to read video metadata'));
+    video.src = url;
+  });
+}
+
 export default function ProjectWorkspacePage({ params }: { params: { id: string } }) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === params.id));
 
+  const addShot = useAppStore((s) => s.addShot);
+  const addAsset = useAppStore((s) => s.addAsset);
   const addGeneration = useAppStore((s) => s.addGeneration);
   const updateGeneration = useAppStore((s) => s.updateGeneration);
   const updateProject = useAppStore((s) => s.updateProject);
   const updateShot = useAppStore((s) => s.updateShot);
+  const [importingMedia, setImportingMedia] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleGenerateShot = useCallback(
     async (shotId: string) => {
@@ -197,6 +225,95 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
     toast.success('Batch generation complete!', { id: 'batch' });
   }, [project, handleGenerateShot, updateProject]);
 
+  const handleImportMedia = useCallback(
+    async (fileList: FileList | File[]) => {
+      if (!project) return;
+      const files = Array.from(fileList);
+      if (files.length === 0) return;
+
+      const videos = files.filter((file) => file.type.startsWith('video/'));
+      if (videos.length === 0) {
+        toast.error('Please choose video files to import.');
+        return;
+      }
+
+      setImportingMedia(true);
+      toast.loading(`Importing ${videos.length} file${videos.length > 1 ? 's' : ''}...`, {
+        id: 'import-media',
+      });
+
+      let imported = 0;
+      let skipped = 0;
+      let nextOrder = project.shots.reduce((max, shot) => Math.max(max, shot.order), -1) + 1;
+
+      for (const file of videos) {
+        let objectUrl: string | null = null;
+        try {
+          objectUrl = URL.createObjectURL(file);
+          const metadata = await readVideoMetadata(objectUrl);
+
+          const assetId = addAsset({
+            name: file.name,
+            type: 'video',
+            url: objectUrl,
+            size: file.size,
+            width: metadata.width,
+            height: metadata.height,
+            duration: metadata.duration,
+            mimeType: file.type || 'video/mp4',
+            storageMode: 'object-url',
+            projectId: project.id,
+            volatile: true,
+          });
+
+          addShot(project.id, {
+            projectId: project.id,
+            title: toImportedTitle(file.name),
+            prompt: `Imported source clip: ${file.name}`,
+            status: 'completed',
+            provider: 'imported',
+            thumbnailUrl: null,
+            videoUrl: objectUrl,
+            duration: metadata.duration,
+            order: nextOrder,
+            sourceType: 'import',
+            assetId,
+            sourceMimeType: file.type || null,
+            sourceSizeBytes: file.size,
+            importedAt: new Date().toISOString(),
+          });
+
+          imported += 1;
+          nextOrder += 1;
+        } catch {
+          if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+          }
+          skipped += 1;
+        }
+      }
+
+      if (imported > 0) {
+        updateProject(project.id, { status: 'ready' });
+      }
+
+      if (imported > 0) {
+        toast.success(`Imported ${imported} clip${imported > 1 ? 's' : ''}.`, {
+          id: 'import-media',
+        });
+      } else {
+        toast.error('No clips were imported.', { id: 'import-media' });
+      }
+
+      if (skipped > 0) {
+        toast.warning(`Skipped ${skipped} file${skipped > 1 ? 's' : ''}.`);
+      }
+
+      setImportingMedia(false);
+    },
+    [project, addAsset, addShot, updateProject]
+  );
+
   if (!project) {
     return (
       <div className="animate-fade-in-up flex flex-col items-center justify-center py-32">
@@ -256,6 +373,38 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
           <span className="text-vv-muted text-xs">
             {completedShots}/{totalShots} shots ready
           </span>
+          <label className="vv-btn-secondary w-full cursor-pointer sm:w-auto">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+              />
+            </svg>
+            {importingMedia ? 'Importing...' : 'Import Media'}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="video/*"
+              multiple
+              className="hidden"
+              disabled={importingMedia}
+              onChange={(event) => {
+                if (event.target.files) {
+                  void handleImportMedia(event.target.files);
+                }
+                if (importInputRef.current) {
+                  importInputRef.current.value = '';
+                }
+              }}
+            />
+          </label>
           <button onClick={handleGenerateAll} className="vv-btn-secondary w-full sm:w-auto">
             <svg
               className="h-4 w-4"

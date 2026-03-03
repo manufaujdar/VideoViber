@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     metadataBase: new URL(
         process.env.NEXT_PUBLIC_SITE_URL ?? 'https://video-viber.vercel.app'
     ),
+    manifest: '/manifest.webmanifest',
     title: {
         default: 'VideoViber — From Vibe to First Cut',
         template: '%s | VideoViber',
@@ -44,6 +45,11 @@ export const metadata: Metadata = {
         index: true,
         follow: true,
         googleBot: { index: true, follow: true },
+    },
+    appleWebApp: {
+        capable: true,
+        title: 'VideoViber',
+        statusBarStyle: 'black-translucent',
     },
 };
 

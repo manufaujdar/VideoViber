@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
 
 const configMessage =
@@ -39,7 +40,7 @@ export default function SignUpPage() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: buildAuthRedirectUrl('/dashboard'),
       },
     });
 
@@ -72,7 +73,7 @@ export default function SignUpPage() {
         data: {
           full_name: name.trim(),
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: buildAuthRedirectUrl('/login'),
       },
     });
 
