@@ -25,9 +25,23 @@ function listFiles(dir, predicate, out = []) {
   return out;
 }
 
+function remapAbsoluteTargetPath(oldAbsolutePath) {
+  if (oldAbsolutePath === sourceNextDir) {
+    return targetNextDir;
+  }
+
+  const sourcePrefix = sourceNextDir + path.sep;
+  if (oldAbsolutePath.startsWith(sourcePrefix)) {
+    return path.join(targetNextDir, oldAbsolutePath.slice(sourcePrefix.length));
+  }
+
+  return oldAbsolutePath;
+}
+
 function mapTracePath(traceFilePath, oldTraceFilePath, relativePath) {
   const oldAbsolute = path.resolve(path.dirname(oldTraceFilePath), relativePath);
-  const remapped = path.relative(path.dirname(traceFilePath), oldAbsolute);
+  const rewrittenAbsolute = remapAbsoluteTargetPath(oldAbsolute);
+  const remapped = path.relative(path.dirname(traceFilePath), rewrittenAbsolute);
   return toPosix(remapped);
 }
 
