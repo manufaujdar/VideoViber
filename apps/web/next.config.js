@@ -1,3 +1,5 @@
+const path = require('path');
+
 const securityHeaders = [
     {
         key: 'X-DNS-Prefetch-Control',
@@ -56,7 +58,9 @@ const nextConfig = {
             },
         ],
     },
-    experimental: {},
+    experimental: {
+        outputFileTracingRoot: path.join(__dirname, '../../'),
+    },
     async headers() {
         return [
             {
