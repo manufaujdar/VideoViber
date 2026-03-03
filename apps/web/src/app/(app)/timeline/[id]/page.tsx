@@ -2016,7 +2016,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     <div className="animate-fade-in-up flex h-[calc(100vh-3.5rem)] flex-col space-y-3">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <Link
+          <a
             href={`/projects/${params.id}`}
             className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03]"
           >
@@ -2029,7 +2029,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
-          </Link>
+          </a>
           <div className="bg-accent/10 text-accent flex h-10 w-10 items-center justify-center rounded-lg">
             <svg
               className="h-5 w-5"

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useAppStore } from '@/app/store';
 
 export default function GenerationsPage() {
@@ -96,9 +95,9 @@ export default function GenerationsPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Link href={`/projects/${gen.projectId}`} className="font-semibold text-sm hover:text-accent transition-colors truncate">
+                    <a href={`/projects/${gen.projectId}`} className="font-semibold text-sm hover:text-accent transition-colors truncate">
                       {gen.projectTitle}
-                    </Link>
+                    </a>
                     <span className="text-vv-disabled">·</span>
                     <span className="text-sm text-vv-secondary truncate">{gen.shotTitle}</span>
                   </div>

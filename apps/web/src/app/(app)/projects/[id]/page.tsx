@@ -421,7 +421,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
             </svg>
             Generate All
           </button>
-          <Link href={`/timeline/${params.id}`} className="vv-btn-primary w-full sm:w-auto">
+          <a href={`/timeline/${params.id}`} className="vv-btn-primary w-full sm:w-auto">
             <svg
               className="h-4 w-4"
               fill="none"
@@ -436,7 +436,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
               />
             </svg>
             Open Timeline
-          </Link>
+          </a>
         </div>
       </div>
 
@@ -581,7 +581,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
             </svg>
             <h2 className="text-lg font-bold">Timeline</h2>
           </div>
-          <Link href={`/timeline/${params.id}`} className="vv-btn-ghost text-sm">
+          <a href={`/timeline/${params.id}`} className="vv-btn-ghost text-sm">
             Open Full Editor
             <svg
               className="h-3.5 w-3.5"
@@ -596,7 +596,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
                 d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
               />
             </svg>
-          </Link>
+          </a>
         </div>
         <div className="vv-card overflow-hidden">
           <div className="flex gap-1 overflow-x-auto pb-2">

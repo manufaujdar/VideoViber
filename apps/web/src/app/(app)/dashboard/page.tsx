@@ -246,7 +246,7 @@ export default function DashboardPage() {
               const completed = project.shots.filter((s) => s.status === 'completed').length;
               const total = project.shots.length;
               return (
-                <Link
+                <a
                   key={project.id}
                   href={`/projects/${project.id}`}
                   className="vv-card-hover group"
@@ -316,7 +316,7 @@ export default function DashboardPage() {
                       style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%` }}
                     />
                   </div>
-                </Link>
+                </a>
               );
             })}
           </div>
