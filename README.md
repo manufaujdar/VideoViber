@@ -65,6 +65,12 @@ pnpm dev
 # Open http://localhost:3000
 ```
 
+If you see runtime chunk errors such as `Cannot find module './46.js'`, clear stale Next artifacts and restart a single dev server:
+
+```bash
+pnpm --filter @videoviber/web dev:reset
+```
+
 ---
 
 ## Repo Structure
@@ -118,17 +124,17 @@ npx vercel@latest deploy --prebuilt --prod
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion |
-| State | Zustand, TanStack Query |
-| Forms | React Hook Form, Zod |
-| Backend | Supabase Postgres, Auth, Storage, RLS |
-| Async Workflows | Trigger.dev / Inngest |
-| Media Processing | FFmpeg, Remotion |
-| Hosting | Vercel (web), Supabase (backend) |
-| Observability | PostHog (analytics), Sentry (errors) |
-| Repo Tooling | pnpm, Turbo, ESLint, Prettier, Husky |
+| Layer            | Technology                                                     |
+| ---------------- | -------------------------------------------------------------- |
+| Frontend         | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion |
+| State            | Zustand, TanStack Query                                        |
+| Forms            | React Hook Form, Zod                                           |
+| Backend          | Supabase Postgres, Auth, Storage, RLS                          |
+| Async Workflows  | Trigger.dev / Inngest                                          |
+| Media Processing | FFmpeg, Remotion                                               |
+| Hosting          | Vercel (web), Supabase (backend)                               |
+| Observability    | PostHog (analytics), Sentry (errors)                           |
+| Repo Tooling     | pnpm, Turbo, ESLint, Prettier, Husky                           |
 
 ---
 

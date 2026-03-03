@@ -1,117 +1,212 @@
+import { ProviderId } from '@videoviber/types';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-/**
- * POST /api/generate
- * 
- * Server-side API route for video generation via Gemini.
- * Uses the GEMINI_API_KEY from environment variables.
- */
-export async function POST(request: NextRequest) {
-    try {
-        const apiKey = process.env.GEMINI_API_KEY;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-        if (!apiKey) {
-            return NextResponse.json(
-                { error: 'Gemini API key not configured. Set GEMINI_API_KEY in environment variables.' },
-                { status: 500 }
-            );
-        }
+const providerIds = [
+  ProviderId.GEMINI,
+  ProviderId.RUNWAY,
+  ProviderId.VEO,
+  ProviderId.LUMA,
+] as const;
 
-        const body = await request.json();
-        const { prompt, provider = 'gemini', duration = 5, aspectRatio = '16:9' } = body;
+const requestSchema = z.object({
+  prompt: z.string().trim().min(10).max(2000),
+  provider: z.enum(providerIds).default(ProviderId.GEMINI),
+  duration: z.number().int().min(2).max(30).default(5),
+  aspectRatio: z.enum(['16:9', '9:16', '1:1', '4:5', '21:9']).default('16:9'),
+  shotCount: z.number().int().min(1).max(12).default(6),
+  negativePrompt: z.string().trim().max(500).optional(),
+});
 
-        if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-            return NextResponse.json(
-                { error: 'A prompt is required for video generation.' },
-                { status: 400 }
-            );
-        }
+type GenerateRequest = z.infer<typeof requestSchema>;
 
-        // Call Gemini API
-        const endpoint = 'https://generativelanguage.googleapis.com/v1beta';
-        const response = await fetch(
-            `${endpoint}/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                {
-                                    text: `You are a professional video production director. Create a detailed video production plan for the following creative brief. Include specific scene descriptions, camera angles, lighting setups, transitions, and timing for each shot.\n\nCreative Brief: ${prompt}\n\nDuration: ${duration} seconds\nAspect Ratio: ${aspectRatio}\nProvider: ${provider}\n\nProvide the response in a structured format with numbered shots.`,
-                                },
-                            ],
-                        },
-                    ],
-                    generationConfig: {
-                        temperature: 0.8,
-                        maxOutputTokens: 2048,
-                        topP: 0.95,
-                    },
-                }),
-            }
-        );
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Gemini API error (${response.status}):`, errorText);
-            return NextResponse.json(
-                {
-                    error: `Gemini API error: ${response.status}`,
-                    details: errorText,
-                },
-                { status: response.status }
-            );
-        }
-
-        const data = await response.json();
-
-        // Extract the generated content
-        const generatedContent =
-            data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-
-        const jobId = `gemini_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-        return NextResponse.json({
-            success: true,
-            jobId,
-            provider: 'gemini',
-            model: 'gemini-2.0-flash',
-            status: 'completed',
-            result: {
-                content: generatedContent,
-                prompt,
-                duration,
-                aspectRatio,
-            },
-            metadata: {
-                finishReason: data?.candidates?.[0]?.finishReason,
-                usage: data?.usageMetadata,
-            },
-        });
-    } catch (error) {
-        console.error('Generation API error:', error);
-        return NextResponse.json(
-            {
-                error: 'Internal server error during generation.',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
-    }
+function providerHealth() {
+  return [
+    {
+      id: ProviderId.GEMINI,
+      configured: Boolean(process.env.GEMINI_API_KEY),
+      serverImplemented: true,
+    },
+    {
+      id: ProviderId.RUNWAY,
+      configured: Boolean(process.env.RUNWAY_API_KEY),
+      serverImplemented: false,
+    },
+    {
+      id: ProviderId.VEO,
+      configured: Boolean(process.env.VEO_API_KEY) && Boolean(process.env.GOOGLE_CLOUD_PROJECT),
+      serverImplemented: false,
+    },
+    {
+      id: ProviderId.LUMA,
+      configured: Boolean(process.env.LUMA_API_KEY),
+      serverImplemented: false,
+    },
+  ];
 }
 
-/**
- * GET /api/generate
- * Health check endpoint for the generation API.
- */
-export async function GET() {
-    const hasKey = !!process.env.GEMINI_API_KEY;
+async function generateWithGemini(input: GenerateRequest) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        error: 'Gemini provider is not configured on the server.',
+        provider: ProviderId.GEMINI,
+      },
+      { status: 503 }
+    );
+  }
+
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const response = await fetch(
+      `${endpoint}/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: [
+                    'You are a senior video planner for a professional AI video editor.',
+                    `Create exactly ${input.shotCount} numbered shots for this brief.`,
+                    'Return output as one shot per line in this format:',
+                    '1. <Short Title>: <Prompt sentence with camera, lighting, motion, and style details>',
+                    '',
+                    `Creative Brief: ${input.prompt}`,
+                    `Shot Duration Target: ${input.duration} seconds`,
+                    `Aspect Ratio: ${input.aspectRatio}`,
+                    input.negativePrompt ? `Avoid: ${input.negativePrompt}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n'),
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            maxOutputTokens: 2500,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return NextResponse.json(
+        {
+          error: `Gemini API request failed (${response.status}).`,
+          provider: ProviderId.GEMINI,
+          details: process.env.NODE_ENV === 'development' ? errorText.slice(0, 1200) : undefined,
+        },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    const generatedContent = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const jobId = `gemini_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     return NextResponse.json({
-        status: 'ok',
-        provider: 'gemini',
-        configured: hasKey,
-        model: 'gemini-2.0-flash',
+      success: true,
+      provider: ProviderId.GEMINI,
+      model: 'gemini-2.0-flash',
+      jobId,
+      status: 'completed',
+      result: {
+        content: generatedContent,
+        prompt: input.prompt,
+        shotCount: input.shotCount,
+        duration: input.duration,
+        aspectRatio: input.aspectRatio,
+      },
+      metadata: {
+        finishReason: data?.candidates?.[0]?.finishReason,
+        usage: data?.usageMetadata,
+      },
     });
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    return NextResponse.json(
+      {
+        error: isAbort
+          ? 'Provider request timed out. Try reducing prompt complexity and retry.'
+          : 'Internal error while planning shots.',
+        provider: ProviderId.GEMINI,
+        details:
+          process.env.NODE_ENV === 'development' && error instanceof Error
+            ? error.message
+            : undefined,
+      },
+      { status: isAbort ? 504 : 500 }
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const json = await request.json();
+    const parsed = requestSchema.safeParse(json);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request payload.',
+          issues: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const input = parsed.data;
+
+    if (input.provider !== ProviderId.GEMINI) {
+      return NextResponse.json(
+        {
+          error: `${input.provider} server adapter is not implemented yet.`,
+          provider: input.provider,
+          supportedProviders: [ProviderId.GEMINI],
+        },
+        { status: 501 }
+      );
+    }
+
+    return generateWithGemini(input);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Failed to process generation request.',
+        details:
+          process.env.NODE_ENV === 'development' && error instanceof Error
+            ? error.message
+            : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  const providers = providerHealth();
+
+  return NextResponse.json({
+    status: 'ok',
+    defaultProvider: ProviderId.GEMINI,
+    providers,
+    configuredProviders: providers.filter((p) => p.configured).map((p) => p.id),
+  });
 }
