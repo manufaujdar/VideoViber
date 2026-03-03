@@ -3,6 +3,7 @@ import type { VideoProvider, ProviderConfig } from './provider';
 import { RunwayAdapter } from './adapters/runway';
 import { VeoAdapter } from './adapters/veo';
 import { LumaAdapter } from './adapters/luma';
+import { GeminiAdapter } from './adapters/gemini';
 
 /**
  * Factory function type for creating provider adapters.
@@ -31,6 +32,7 @@ export class ProviderRegistry {
         this.register('runway', (config) => new RunwayAdapter(config));
         this.register('veo', (config) => new VeoAdapter(config));
         this.register('luma', (config) => new LumaAdapter(config));
+        this.register('gemini', (config) => new GeminiAdapter(config));
     }
 
     /**

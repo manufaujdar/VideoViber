@@ -6,6 +6,14 @@ import { toast } from 'sonner';
 
 const providers = [
   {
+    id: 'gemini',
+    name: 'Gemini',
+    description: 'Google AI — Fast, powerful multimodal video generation',
+    docsUrl: 'https://ai.google.dev/docs',
+    gradient: 'from-blue-500/15 to-indigo-500/15',
+    letter: 'G',
+  },
+  {
     id: 'runway',
     name: 'Runway',
     description: 'Gen-3 Alpha — High quality cinematic video generation',

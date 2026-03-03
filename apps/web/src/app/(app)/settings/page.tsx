@@ -66,6 +66,7 @@ export default function SettingsPage() {
               <p className="text-xs text-vv-muted">Used for new shot generations</p>
             </div>
             <select value={settings.defaultProvider} onChange={(e) => { updateSettings({ defaultProvider: e.target.value }); toast.success('Provider updated'); }} className="vv-input w-full sm:w-40">
+              <option value="gemini">Gemini</option>
               <option value="runway">Runway</option>
               <option value="veo">Veo</option>
               <option value="luma">Luma</option>

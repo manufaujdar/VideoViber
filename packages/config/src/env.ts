@@ -37,6 +37,13 @@ export const envSchema = z.object({
     NODE_ENV: z
         .enum(['development', 'production', 'test'])
         .default('development'),
+
+    // ─── Gemini (Google AI) ─────────────────────────────
+    GEMINI_API_KEY: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Gemini API key for video generation'),
 });
 
 export type Env = z.infer<typeof envSchema>;

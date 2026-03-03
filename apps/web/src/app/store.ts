@@ -242,7 +242,7 @@ export const useAppStore = create<AppState>()(
       /* ── Settings ───────────────────────────── */
       settings: {
         displayName: '',
-        defaultProvider: 'runway',
+        defaultProvider: 'gemini',
         defaultResolution: '1080p',
         autoSave: true,
       },

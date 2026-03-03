@@ -51,6 +51,7 @@ export const ProviderId = {
     RUNWAY: 'runway',
     VEO: 'veo',
     LUMA: 'luma',
+    GEMINI: 'gemini',
 } as const;
 export type ProviderId = (typeof ProviderId)[keyof typeof ProviderId];
 

@@ -37,6 +37,8 @@ const nextConfig = {
         '@videoviber/ui',
         '@videoviber/types',
         '@videoviber/db',
+        '@videoviber/sdk',
+        '@videoviber/config',
     ],
     images: {
         remotePatterns: [

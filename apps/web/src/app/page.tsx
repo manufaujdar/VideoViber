@@ -75,6 +75,7 @@ const features = [
 ];
 
 const providers = [
+  { name: 'Gemini', sub: 'Google AI', letter: 'G', gradient: 'from-blue-500 to-indigo-500', desc: 'Multimodal AI' },
   { name: 'Runway', sub: 'Gen-3 Alpha', letter: 'R', gradient: 'from-violet-500 to-purple-500', desc: 'Cinematic quality' },
   { name: 'Veo', sub: 'Vertex AI', letter: 'V', gradient: 'from-blue-500 to-cyan-500', desc: 'Google-powered' },
   { name: 'Luma', sub: 'Dream Machine', letter: 'L', gradient: 'from-emerald-500 to-green-500', desc: 'Fast & creative' },
@@ -184,7 +185,7 @@ export default function LandingPage() {
 
           {/* Trust signals */}
           <div className="animate-fade-in-up delay-500 mt-16 flex flex-wrap items-center justify-center gap-6 text-xs text-vv-muted opacity-0">
-            {['BYOK — Your keys, your costs', 'Multi-provider (Runway, Veo, Luma)', 'Non-destructive editing', 'AES-256 encrypted'].map((t) => (
+            {['BYOK — Your keys, your costs', 'Multi-provider (Gemini, Runway, Veo, Luma)', 'Non-destructive editing', 'AES-256 encrypted'].map((t) => (
               <span key={t} className="flex items-center gap-2">
                 <svg className="h-4 w-4 text-success" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                 {t}
@@ -351,9 +352,9 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {providers.map((p, i) => (
-              <div key={p.name} className={`vv-card-hover group text-center animate-fade-in-up opacity-0 ${['delay-100', 'delay-200', 'delay-300'][i]}`}>
+              <div key={p.name} className={`vv-card-hover group text-center animate-fade-in-up opacity-0 ${['delay-100', 'delay-200', 'delay-300', 'delay-400'][i]}`}>
                 <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${p.gradient} text-xl font-bold text-white shadow-lg ring-1 ring-white/10 transition-transform group-hover:scale-110`}>
                   {p.letter}
                 </div>

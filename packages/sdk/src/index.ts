@@ -15,6 +15,7 @@ export type {
 export { RunwayAdapter } from './adapters/runway';
 export { VeoAdapter } from './adapters/veo';
 export { LumaAdapter } from './adapters/luma';
+export { GeminiAdapter } from './adapters/gemini';
 
 // Registry
 export { ProviderRegistry, providerRegistry } from './registry';

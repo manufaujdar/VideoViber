@@ -17,6 +17,7 @@ export default function CreateProjectPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const providers = [
+    { name: 'Gemini', sub: 'Google AI', id: 'gemini', gradient: 'from-blue-500/10 to-indigo-500/10' },
     { name: 'Runway', sub: 'Gen-3 Alpha', id: 'runway', gradient: 'from-violet-500/10 to-purple-500/10' },
     { name: 'Veo', sub: 'Vertex AI', id: 'veo', gradient: 'from-blue-500/10 to-cyan-500/10' },
     { name: 'Luma', sub: 'Dream Machine', id: 'luma', gradient: 'from-emerald-500/10 to-green-500/10' },
@@ -174,7 +175,7 @@ export default function CreateProjectPage() {
         {/* Provider Selection */}
         <div className="space-y-3">
           <label className="vv-label">Default Provider</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {providers.map((p) => (
               <button
                 key={p.id}
