@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { MotionImage } from '@/components/motion-image';
 
 export const metadata: Metadata = {
@@ -58,10 +58,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </section>
 
         <section className="mx-auto flex w-full max-w-lg flex-col justify-center">
-          <Link href="/" className="mb-6 inline-flex items-center gap-3 self-center">
-            <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 shadow-[0_0_22px_rgba(82,222,255,0.65)]" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em]">VideoViber</span>
-          </Link>
+          <BrandLogo href="/" className="mb-6 self-center" />
 
           <div className="glass-strong animate-scale-in rounded-3xl border border-white/12 p-7 shadow-[0_30px_80px_rgba(0,0,0,0.4)] sm:p-8">
             {children}

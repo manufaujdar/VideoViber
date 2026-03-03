@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Outfit } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 
 const outfit = Outfit({
@@ -11,7 +12,7 @@ const outfit = Outfit({
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    themeColor: '#7c3aed',
+    themeColor: '#52deff',
 };
 
 export const metadata: Metadata = {
@@ -52,11 +53,29 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en" className={`dark ${outfit.variable}`}>
+        <html lang="en" className={`dark ${outfit.variable}`} suppressHydrationWarning>
             <body className="min-h-screen bg-vv-base font-sans text-vv-primary antialiased">
+                <Script id="videoviber-performance-mode" strategy="beforeInteractive">
+                    {`
+                      (function () {
+                        try {
+                          var doc = document.documentElement;
+                          var media = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+                          var reducedMotion = !!(media && media.matches);
+                          var nav = window.navigator || {};
+                          var conn = nav.connection || nav.mozConnection || nav.webkitConnection;
+                          var saveData = !!(conn && conn.saveData);
+                          var lowCores = typeof nav.hardwareConcurrency === 'number' ? nav.hardwareConcurrency <= 4 : false;
+                          var lowMemory = typeof nav.deviceMemory === 'number' ? nav.deviceMemory <= 4 : false;
+                          if (reducedMotion || saveData || lowCores || lowMemory) {
+                            doc.classList.add('vv-low-motion');
+                          }
+                        } catch (error) {}
+                      })();
+                    `}
+                </Script>
                 {children}
             </body>
         </html>
     );
 }
-

@@ -145,37 +145,44 @@ const pipeline = [
   },
 ];
 
-type PortalVariables = CSSProperties & {
-  '--tilt-x': string;
-  '--tilt-y': string;
-  '--mouse-x': string;
-  '--mouse-y': string;
-  '--depth': string;
-};
-
 export default function MarketingHomePage() {
-  const sceneRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+  const pointerFrameRef = useRef<number | null>(null);
+  const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const lastCommittedRatioRef = useRef(0.18);
+  const lastCommitAtRef = useRef(0);
   const defaultMode = modePresets[0]!;
   const defaultShot = showcaseShots[0]!;
 
-  const [tilt, setTilt] = useState({ x: 8, y: -10 });
-  const [pointer, setPointer] = useState({ x: 52, y: 46 });
   const [scrollRatio, setScrollRatio] = useState(0.18);
   const [selectedModeId, setSelectedModeId] = useState(defaultMode.id);
 
   useEffect(() => {
-    let frame = 0;
+    let frame: number | null = null;
+    const minCommitIntervalMs = 120;
 
     const syncScroll = () => {
-      if (frame) {
+      if (frame !== null) {
         return;
       }
 
       frame = window.requestAnimationFrame(() => {
         const maxScroll = Math.max(document.body.scrollHeight - window.innerHeight, 1);
         const ratio = Math.min(window.scrollY / maxScroll, 1);
-        setScrollRatio(ratio);
-        frame = 0;
+        const roundedRatio = Math.round(ratio * 1000) / 1000;
+        const now = performance.now();
+        const timeSinceLastCommit = now - lastCommitAtRef.current;
+        const diff = Math.abs(roundedRatio - lastCommittedRatioRef.current);
+
+        if (timeSinceLastCommit >= minCommitIntervalMs || diff >= 0.04) {
+          if (diff >= 0.005) {
+            setScrollRatio(roundedRatio);
+            lastCommittedRatioRef.current = roundedRatio;
+          }
+          lastCommitAtRef.current = now;
+        }
+
+        frame = null;
       });
     };
 
@@ -184,8 +191,22 @@ export default function MarketingHomePage() {
 
     return () => {
       window.removeEventListener('scroll', syncScroll);
-      if (frame) {
+      if (frame !== null) {
         window.cancelAnimationFrame(frame);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const portal = portalRef.current;
+    if (!portal) return;
+    portal.style.setProperty('--depth', `${Math.round(scrollRatio * 42)}px`);
+  }, [scrollRatio]);
+
+  useEffect(() => {
+    return () => {
+      if (pointerFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerFrameRef.current);
       }
     };
   }, []);
@@ -196,31 +217,51 @@ export default function MarketingHomePage() {
   const unlockedBadges = Math.max(1, Math.min(6, Math.floor(scrollRatio * 7)));
   const activeShot =
     showcaseShots[Math.min(showcaseShots.length - 1, Math.floor(scrollRatio * 3))] ?? defaultShot;
-  const depth = Math.round(scrollRatio * 42);
 
   const handleScenePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (document.documentElement.classList.contains('vv-low-motion')) {
+      return;
+    }
+
     const rect = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width;
     const y = (event.clientY - rect.top) / rect.height;
+    pendingPointerRef.current = { x, y };
 
-    setPointer({ x: Math.round(x * 100), y: Math.round(y * 100) });
-    setTilt({
-      x: 8 - (y - 0.5) * 11,
-      y: -10 + (x - 0.5) * 16,
+    if (pointerFrameRef.current !== null) {
+      return;
+    }
+
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      const portal = portalRef.current;
+      const pending = pendingPointerRef.current;
+      if (!portal || !pending) {
+        pointerFrameRef.current = null;
+        return;
+      }
+
+      const rotateY = -10 + (pending.x - 0.5) * 16;
+      const rotateX = 8 - (pending.y - 0.5) * 11;
+      portal.style.setProperty('--tilt-x', `${rotateX.toFixed(2)}deg`);
+      portal.style.setProperty('--tilt-y', `${rotateY.toFixed(2)}deg`);
+      portal.style.setProperty('--mouse-x', `${Math.round(pending.x * 100)}%`);
+      portal.style.setProperty('--mouse-y', `${Math.round(pending.y * 100)}%`);
+      pointerFrameRef.current = null;
     });
   };
 
   const resetTilt = () => {
-    setTilt({ x: 8, y: -10 });
-    setPointer({ x: 52, y: 46 });
-  };
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = null;
+    }
 
-  const portalVariables: PortalVariables = {
-    '--tilt-x': `${tilt.x.toFixed(2)}deg`,
-    '--tilt-y': `${tilt.y.toFixed(2)}deg`,
-    '--mouse-x': `${pointer.x}%`,
-    '--mouse-y': `${pointer.y}%`,
-    '--depth': `${depth}px`,
+    const portal = portalRef.current;
+    if (!portal) return;
+    portal.style.setProperty('--tilt-x', '8deg');
+    portal.style.setProperty('--tilt-y', '-10deg');
+    portal.style.setProperty('--mouse-x', '52%');
+    portal.style.setProperty('--mouse-y', '46%');
   };
 
   return (
@@ -277,11 +318,10 @@ export default function MarketingHomePage() {
 
           <div
             className={styles.sceneWrap}
-            ref={sceneRef}
             onPointerMove={handleScenePointerMove}
             onPointerLeave={resetTilt}
           >
-            <div className={styles.portal} style={portalVariables}>
+            <div className={styles.portal} ref={portalRef}>
               <div className={styles.portalScreen}>
                 <MotionImage
                   src={activeShot.image}

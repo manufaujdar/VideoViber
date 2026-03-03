@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/app/store';
+import { BrandLogo } from '@/components/brand-logo';
 import { Toaster } from 'sonner';
 
 const navItems = [
@@ -176,28 +177,13 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
         onClick={onClose}
       />
       <aside
-        className={`bg-vv-surface/90 md:w-sidebar fixed left-0 top-0 z-50 flex h-screen w-[85vw] max-w-[280px] flex-col border-r border-white/5 backdrop-blur-xl transition-transform duration-300 md:translate-x-0 ${
+        className={`vv-sidebar-shell md:w-sidebar fixed left-0 top-0 z-50 flex h-screen w-[85vw] max-w-[280px] flex-col transition-transform duration-300 md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Logo — clicks to home */}
-        <div className="flex h-16 items-center justify-between border-b border-white/5 px-5">
-          <Link
-            href="/"
-            className="flex items-center gap-3 transition-colors hover:bg-white/[0.02]"
-          >
-            <div className="from-accent shadow-accent/30 relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br to-amber-300 shadow-md">
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
-              <svg
-                className="relative ml-0.5 h-3.5 w-3.5 text-white drop-shadow-sm"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <span className="text-base font-bold tracking-tight">VideoViber</span>
-          </Link>
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+          <BrandLogo href="/" wordmarkClassName="text-[0.82rem] tracking-[0.17em]" />
           <button
             onClick={onClose}
             className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:hidden"
@@ -227,7 +213,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
         </nav>
 
         {/* Account Section — pushed to bottom */}
-        <div className="border-t border-white/5 px-3 py-3">
+        <div className="border-t border-white/10 px-3 py-3">
           <p className="text-vv-muted/60 mb-2 px-3 text-[10px] font-bold uppercase tracking-widest">
             Account
           </p>
@@ -238,7 +224,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
         </div>
 
         {/* User */}
-        <div className="border-t border-white/5 p-4">
+        <div className="border-t border-white/10 p-4">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]">
             <div className="from-accent/20 text-accent ring-accent/20 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br to-amber-300/20 text-sm font-bold ring-1">
               U
@@ -271,7 +257,7 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   }, [pathname]);
 
   return (
-    <header className="bg-vv-base/60 sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/5 px-4 backdrop-blur-xl sm:px-6">
+    <header className="vv-topbar-shell sticky top-0 z-40 flex h-14 items-center justify-between px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <button
           className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:hidden"
@@ -292,6 +278,7 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
             />
           </svg>
         </button>
+        <BrandLogo href="/" compact className="md:hidden" />
         <div>
           <p className="text-sm font-semibold">{pageTitle}</p>
           <p className="text-vv-muted hidden text-xs sm:block">Production workspace</p>
@@ -339,9 +326,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#1c1c1f',
-            border: '1px solid rgba(255,255,255,0.08)',
-            color: '#fafafa',
+            background: 'linear-gradient(165deg, rgba(11, 20, 34, 0.92), rgba(7, 13, 22, 0.94))',
+            border: '1px solid rgba(82, 222, 255, 0.24)',
+            color: '#edf4ff',
             fontSize: '13px',
           },
         }}

@@ -109,6 +109,77 @@
            transition-all duration-200 hover:bg-white/[0.05] hover:text-vv-primary;
   }
 
+  .vv-header-shell {
+    border: 1px solid rgba(188, 214, 255, 0.2);
+    background: linear-gradient(180deg, rgba(8, 14, 28, 0.86), rgba(7, 12, 22, 0.64));
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(18px) saturate(130%);
+  }
+
+  .vv-topbar-shell {
+    border-bottom: 1px solid rgba(188, 214, 255, 0.14);
+    background: linear-gradient(180deg, rgba(8, 14, 28, 0.76), rgba(6, 11, 20, 0.62));
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+
+  .vv-sidebar-shell {
+    border-right: 1px solid rgba(188, 214, 255, 0.14);
+    background:
+      radial-gradient(420px 280px at -10% -10%, rgba(82, 222, 255, 0.16), transparent 60%),
+      radial-gradient(360px 260px at 100% 10%, rgba(255, 175, 103, 0.11), transparent 64%),
+      linear-gradient(180deg, rgba(7, 13, 23, 0.95), rgba(6, 11, 19, 0.92));
+    backdrop-filter: blur(18px) saturate(120%);
+  }
+
+  .vv-brand-logo {
+    @apply inline-flex items-center gap-3 no-underline transition-opacity;
+  }
+
+  .vv-brand-logo:hover {
+    opacity: 0.9;
+  }
+
+  .vv-brand-mark {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #52deff, #c4f6ff 45%, #ffb36b);
+    box-shadow: 0 8px 24px rgba(82, 222, 255, 0.3), 0 4px 12px rgba(255, 175, 103, 0.22);
+    border: 1px solid rgba(216, 247, 255, 0.62);
+  }
+
+  .vv-brand-mark::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), transparent 55%);
+    pointer-events: none;
+  }
+
+  .vv-brand-glyph {
+    width: 0.88rem;
+    height: 0.88rem;
+    color: #06152b;
+    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35));
+    position: relative;
+    left: 0.03rem;
+  }
+
+  .vv-brand-word {
+    color: #edf4ff;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
   .vv-input {
     @apply rounded-xl border border-white/10 bg-[#070d18]/85 px-4 py-2.5 text-sm
            text-vv-primary placeholder:text-vv-muted transition-all duration-200
@@ -234,6 +305,8 @@
 
 .vv-page-shell {
   @apply relative overflow-hidden px-6 py-24;
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 920px;
 }
 
 .vv-page-shell::before {
@@ -410,11 +483,17 @@
 
 .vv-motion-image {
   transform-origin: 50% 50%;
-  will-change: translate, scale, filter;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
   animation-delay: var(--vv-motion-delay, 0ms);
   animation-iteration-count: infinite;
   animation-direction: alternate;
   animation-timing-function: ease-in-out;
+}
+
+.vv-motion-paused {
+  animation-play-state: paused !important;
 }
 
 .vv-motion-drift {
@@ -446,12 +525,39 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vv-motion-image {
+  .vv-motion-image,
+  .animate-float,
+  .animate-gradient,
+  .animate-glow-pulse,
+  .animate-fade-in-up,
+  .animate-scale-in,
+  .animate-slide-up,
+  .animate-slide-in-right {
     animation: none !important;
-    translate: 0 0;
-    scale: 1;
+    transform: none !important;
     filter: none;
   }
+}
+
+html.vv-low-motion .vv-motion-image,
+html.vv-low-motion .animate-float,
+html.vv-low-motion .animate-gradient,
+html.vv-low-motion .animate-glow-pulse,
+html.vv-low-motion .animate-fade-in-up,
+html.vv-low-motion .animate-scale-in,
+html.vv-low-motion .animate-slide-up,
+html.vv-low-motion .animate-slide-in-right {
+  animation: none !important;
+  transform: none !important;
+}
+
+html.vv-low-motion .glass,
+html.vv-low-motion .glass-strong,
+html.vv-low-motion .vv-header-shell,
+html.vv-low-motion .vv-topbar-shell,
+html.vv-low-motion .vv-sidebar-shell {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ─── Line Clamp ─────────────────────────────────────────── */

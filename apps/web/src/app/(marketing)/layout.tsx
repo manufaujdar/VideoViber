@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 
 export const metadata: Metadata = {
   title: {
@@ -42,13 +43,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(1000px_620px_at_0%_0%,rgba(71,197,255,0.18),transparent_60%),radial-gradient(920px_580px_at_95%_6%,rgba(255,167,103,0.12),transparent_62%),linear-gradient(180deg,#03060d_0%,#050913_45%,#02040a_100%)]" />
 
       <header className="sticky top-3 z-sticky px-4 md:px-6">
-        <nav className="mx-auto mt-3 flex h-[72px] w-full max-w-7xl items-center justify-between rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(8,14,28,0.86),rgba(7,12,22,0.64))] px-4 shadow-[0_20px_55px_rgba(0,0,0,0.42)] backdrop-blur-xl md:px-6">
-          <Link href="/" className="group flex items-center gap-3">
-            <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 shadow-[0_0_28px_rgba(82,222,255,0.7)]" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-vv-primary transition-opacity group-hover:opacity-85 md:text-base">
-              VideoViber
-            </span>
-          </Link>
+        <nav className="vv-header-shell mx-auto mt-3 flex h-[72px] w-full max-w-7xl items-center justify-between rounded-2xl px-4 md:px-6">
+          <BrandLogo href="/" />
 
           <ul className="hidden items-center gap-1 md:flex">
             {navLinks.map((link) => (
@@ -72,7 +68,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             </Link>
             <Link
               href="/signup"
-              className="inline-flex rounded-full border border-cyan-200/70 bg-gradient-to-r from-cyan-300 via-cyan-100 to-amber-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-[#06152b] shadow-[0_12px_30px_rgba(82,222,255,0.24)] transition-transform hover:-translate-y-0.5 md:px-5"
+              className="vv-btn-primary px-4 py-2 text-xs uppercase tracking-[0.1em] md:px-5"
             >
               Enter Studio
             </Link>
@@ -86,12 +82,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="mx-auto max-w-7xl px-6 py-16">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
-              <Link href="/" className="flex items-center gap-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 shadow-[0_0_28px_rgba(82,222,255,0.7)]" />
-                <span className="text-sm font-semibold uppercase tracking-[0.2em] text-vv-primary md:text-base">
-                  VideoViber
-                </span>
-              </Link>
+              <BrandLogo href="/" />
 
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-vv-secondary">
                 Cinematic AI studio for creators who need continuity, visual control, and timeline
