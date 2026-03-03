@@ -22,11 +22,11 @@ export const providerCatalog: ProviderCatalogItem[] = [
     id: ProviderId.GEMINI,
     name: 'Gemini',
     shortName: 'Gemini',
-    description: 'Google AI planner/generation endpoint',
+    description: 'Google AI planning + Veo model access via Gemini API key',
     docsUrl: 'https://ai.google.dev/docs',
     gradient: 'from-blue-500/15 to-indigo-500/15',
     letter: 'G',
-    envVars: ['GEMINI_API_KEY'],
+    envVars: ['GEMINI_API_KEY (or GOOGLE_API_KEY / GOOGLE_GENAI_API_KEY)'],
   },
   {
     id: ProviderId.RUNWAY,
@@ -40,13 +40,16 @@ export const providerCatalog: ProviderCatalogItem[] = [
   },
   {
     id: ProviderId.VEO,
-    name: 'Veo (Vertex AI)',
+    name: 'Veo (Gemini API)',
     shortName: 'Veo',
-    description: "Google's Veo through Vertex AI",
-    docsUrl: 'https://cloud.google.com/vertex-ai/docs/generative-ai/video/overview',
+    description: "Google's Veo long-running video generation models",
+    docsUrl: 'https://ai.google.dev/gemini-api/docs/video',
     gradient: 'from-blue-500/15 to-cyan-500/15',
     letter: 'V',
-    envVars: ['VEO_API_KEY', 'GOOGLE_CLOUD_PROJECT'],
+    envVars: [
+      'GEMINI_API_KEY (or GOOGLE_API_KEY / GOOGLE_GENAI_API_KEY)',
+      'GEMINI_VEO_MODEL (optional)',
+    ],
   },
   {
     id: ProviderId.LUMA,
@@ -64,6 +67,6 @@ export const defaultProviderRuntimeHealth: ProviderRuntimeHealth[] = providerCat
   (provider) => ({
     id: provider.id,
     configured: false,
-    serverImplemented: provider.id === ProviderId.GEMINI,
+    serverImplemented: provider.id === ProviderId.GEMINI || provider.id === ProviderId.VEO,
   })
 );

@@ -13,7 +13,9 @@ export default function SettingsPage() {
 
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const selectableProviders = providerCatalog.filter((provider) => provider.id === ProviderId.GEMINI);
+  const selectableProviders = providerCatalog.filter(
+    (provider) => provider.id === ProviderId.GEMINI || provider.id === ProviderId.VEO
+  );
 
   useEffect(() => {
     if (!selectableProviders.some((provider) => provider.id === settings.defaultProvider)) {

@@ -288,7 +288,7 @@ export function generateShotsForProject(brief: string, provider: string, count =
     provider,
     thumbnailUrl: null,
     videoUrl: null,
-    duration: 5,
+    duration: 6,
     order: i,
     createdAt: now(),
   }));

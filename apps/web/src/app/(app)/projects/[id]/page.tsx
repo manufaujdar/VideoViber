@@ -42,6 +42,8 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
           body: JSON.stringify({
             prompt: shot.prompt,
             provider: shot.provider,
+            workflow: 'video',
+            waitForCompletion: false,
             duration: shot.duration,
             aspectRatio: '16:9',
             shotCount: 1,
@@ -53,13 +55,82 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
           throw new Error(payload?.error || `Request failed (${response.status})`);
         }
 
-        const planned = parsePlannerShots(payload?.result?.content ?? '', 1)[0];
+        let finalPayload = payload;
+        const operationName =
+          payload?.result?.operationName ??
+          payload?.operationName ??
+          payload?.result?.name ??
+          payload?.name;
+
+        if (
+          operationName &&
+          (payload?.status === 'processing' || payload?.result?.status === 'processing')
+        ) {
+          for (let attempt = 1; attempt <= 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+
+            updateGeneration(genId, {
+              status: 'processing',
+              progress: Math.min(95, 20 + attempt * 3),
+              error: null,
+            });
+
+            const statusResponse = await fetch(
+              `/api/generate?operationName=${encodeURIComponent(operationName)}`
+            );
+            const statusPayload = await statusResponse.json();
+
+            if (!statusResponse.ok && statusPayload?.status !== 'processing') {
+              throw new Error(
+                statusPayload?.details ||
+                  statusPayload?.error ||
+                  `Operation polling failed (${statusResponse.status})`
+              );
+            }
+
+            if (
+              statusPayload?.status === 'completed' ||
+              statusPayload?.result?.status === 'completed'
+            ) {
+              finalPayload = statusPayload;
+              break;
+            }
+
+            if (
+              statusPayload?.status === 'failed' ||
+              statusPayload?.result?.status === 'failed'
+            ) {
+              throw new Error(
+                statusPayload?.details || statusPayload?.error || 'Video generation failed'
+              );
+            }
+
+            if (attempt === 20) {
+              throw new Error(
+                'Video generation is still processing. Retry in a moment to fetch the result.'
+              );
+            }
+          }
+        }
+
+        const videoUrl =
+          finalPayload?.result?.video?.proxyUrl ||
+          finalPayload?.result?.video?.uri ||
+          finalPayload?.video?.proxyUrl ||
+          finalPayload?.video?.uri ||
+          null;
+        const planned = parsePlannerShots(finalPayload?.result?.content ?? '', 1)[0];
+
+        if (!videoUrl && !planned) {
+          throw new Error('Provider returned no usable video output for this shot.');
+        }
+
         updateShot(project.id, shot.id, {
           status: 'completed',
           title: planned?.title || shot.title,
           prompt: planned?.prompt || shot.prompt,
           thumbnailUrl: null,
-          videoUrl: null,
+          videoUrl,
         });
         updateGeneration(genId, {
           status: 'completed',
@@ -237,6 +308,14 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
                     motionPreset="drift"
                     motionSpeed="medium"
                     motionDelayMs={index * 110}
+                  />
+                ) : shot.videoUrl ? (
+                  <video
+                    src={shot.videoUrl}
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">

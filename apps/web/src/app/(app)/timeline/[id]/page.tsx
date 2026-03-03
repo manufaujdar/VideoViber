@@ -247,6 +247,14 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                 motionPreset="pan"
                 motionSpeed="slow"
               />
+            ) : previewClip?.videoUrl ? (
+              <video
+                src={previewClip.videoUrl}
+                className="h-full w-full object-contain"
+                controls
+                playsInline
+                preload="metadata"
+              />
             ) : previewClip ? (
               <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.2),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(56,189,248,0.16),transparent_42%)] p-8 text-center">
                 <div>
@@ -332,6 +340,15 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                   className="aspect-video w-full rounded-lg object-cover"
                   motionPreset="drift"
                   motionSpeed="medium"
+                />
+              )}
+              {!selectedClip.thumbnailUrl && selectedClip.videoUrl && (
+                <video
+                  src={selectedClip.videoUrl}
+                  className="aspect-video w-full rounded-lg object-cover"
+                  controls
+                  playsInline
+                  preload="metadata"
                 />
               )}
               <h4 className="text-sm font-semibold">{selectedClip.title}</h4>

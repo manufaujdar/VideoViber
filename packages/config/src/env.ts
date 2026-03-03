@@ -44,6 +44,21 @@ export const envSchema = z.object({
         .min(1)
         .optional()
         .describe('Gemini API key for video generation'),
+    GOOGLE_API_KEY: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Alternate Google API key env var accepted by Gemini endpoints'),
+    GOOGLE_GENAI_API_KEY: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Google GenAI SDK default API key env var'),
+    GEMINI_VEO_MODEL: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Optional Veo model id, e.g. veo-3.1-generate-preview'),
 });
 
 export type Env = z.infer<typeof envSchema>;

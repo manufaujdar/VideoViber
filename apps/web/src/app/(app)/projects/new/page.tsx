@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 
 const aspectRatioOptions = ['16:9', '9:16', '1:1', '4:5', '21:9'] as const;
 const shotCountOptions = [4, 6, 8, 10] as const;
+const clipDurationOptions = [4, 6, 8] as const;
 const maxFileSizeBytes = 10 * 1024 * 1024;
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -47,7 +48,7 @@ export default function CreateProjectPage() {
   );
   const [files, setFiles] = useState<File[]>([]);
   const [shotCount, setShotCount] = useState<number>(6);
-  const [durationSeconds, setDurationSeconds] = useState<number>(5);
+  const [durationSeconds, setDurationSeconds] = useState<number>(6);
   const [aspectRatio, setAspectRatio] = useState<(typeof aspectRatioOptions)[number]>('16:9');
   const [submitting, setSubmitting] = useState(false);
 
@@ -295,7 +296,7 @@ export default function CreateProjectPage() {
               onChange={(e) => setDurationSeconds(Number(e.target.value))}
               className="vv-input w-full"
             >
-              {[3, 4, 5, 6, 8, 10].map((seconds) => (
+              {clipDurationOptions.map((seconds) => (
                 <option key={seconds} value={seconds}>
                   {seconds}s per shot
                 </option>

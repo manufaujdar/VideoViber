@@ -38,7 +38,7 @@ VideoViber is not a thin wrapper around one video provider. It's a **structured 
 ┌─────────────────▼────────────────────────────────────────────┐
 │              Provider Abstraction Layer                        │
 │  ┌──────────┐  ┌──────────────┐  ┌──────────┐               │
-│  │  Runway  │  │ Veo (Vertex) │  │   Luma   │   + more      │
+│  │  Runway  │  │ Veo (Gemini) │  │   Luma   │   + more      │
 │  └──────────┘  └──────────────┘  └──────────┘               │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -108,13 +108,18 @@ This repo includes a root [`vercel.json`](vercel.json) with explicit Next.js + m
 
 - `framework: nextjs`
 - `buildCommand: pnpm build:web` (builds `apps/web`)
-- `outputDirectory: apps/web/.next` (ensures Vercel reads the Next output from the workspace app)
+- `outputDirectory: .next` (build script copies `apps/web/.next` to repo root for Vercel)
 
 If your Vercel project was created at repo root, keep these settings in sync:
 
 - Root directory: repo root
 - Build command: `pnpm build:web`
-- Output directory: `apps/web/.next`
+- Output directory: `.next`
+
+Required production env for Gemini + Veo generation:
+
+- `GEMINI_API_KEY` or `GOOGLE_API_KEY` (or `GOOGLE_GENAI_API_KEY`)
+- `GEMINI_VEO_MODEL` (optional, default `veo-3.1-generate-preview`)
 
 Recommended CLI flow:
 
