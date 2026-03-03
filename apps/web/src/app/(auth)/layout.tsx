@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
+import { MotionImage } from '@/components/motion-image';
 
 export const metadata: Metadata = {
   title: 'Account',
@@ -19,15 +19,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(900px_560px_at_8%_0%,rgba(82,222,255,0.16),transparent_60%),radial-gradient(760px_520px_at_94%_12%,rgba(255,175,103,0.12),transparent_62%),linear-gradient(180deg,#02040a_0%,#040913_55%,#02050a_100%)]" />
 
       <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="vv-card-glow hidden overflow-hidden rounded-3xl p-0 lg:block">
+        <section className="vv-card-glow animate-slide-up hidden overflow-hidden rounded-3xl p-0 lg:block">
           <div className="relative aspect-[9/10]">
-            <Image
+            <MotionImage
               src="https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1400&q=80"
               alt="Cinematic abstract corridor"
               fill
               sizes="40vw"
               className="object-cover"
               priority
+              motionPreset="drift"
+              motionSpeed="slow"
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,6,14,0.25),rgba(3,6,14,0.85))]" />
             <div className="absolute inset-x-6 bottom-6">
@@ -61,7 +63,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="text-sm font-semibold uppercase tracking-[0.2em]">VideoViber</span>
           </Link>
 
-          <div className="glass-strong rounded-3xl border border-white/12 p-7 shadow-[0_30px_80px_rgba(0,0,0,0.4)] sm:p-8">
+          <div className="glass-strong animate-scale-in rounded-3xl border border-white/12 p-7 shadow-[0_30px_80px_rgba(0,0,0,0.4)] sm:p-8">
             {children}
           </div>
 

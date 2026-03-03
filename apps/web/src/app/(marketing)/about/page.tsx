@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
+import { MotionImage } from '@/components/motion-image';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -71,15 +71,17 @@ export default function AboutPage() {
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-          <article className="vv-card-glow rounded-3xl p-0 overflow-hidden">
+          <article className="vv-card-glow animate-slide-up rounded-3xl overflow-hidden p-0">
             <div className="relative aspect-[16/9]">
-              <Image
+              <MotionImage
                 src="https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1800&q=80"
                 alt="Cinematic city skyline with atmospheric lighting"
                 fill
                 sizes="(max-width: 1024px) 100vw, 66vw"
                 className="object-cover"
                 priority
+                motionPreset="pan"
+                motionSpeed="slow"
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,14,0.05),rgba(2,6,14,0.75))]" />
             </div>
@@ -92,7 +94,7 @@ export default function AboutPage() {
             </div>
           </article>
 
-          <article className="vv-card rounded-3xl p-7">
+          <article className="vv-card animate-slide-up delay-100 rounded-3xl p-7">
             <h2 className="text-xl font-semibold">Operating Principles</h2>
             <ul className="mt-4 space-y-3 text-sm">
               {operatingPrinciples.map((item) => (
@@ -115,7 +117,7 @@ export default function AboutPage() {
 
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {pillars.map((pillar) => (
-            <article key={pillar.title} className="vv-card-hover rounded-2xl p-6">
+            <article key={pillar.title} className="vv-card-hover animate-slide-up delay-200 rounded-2xl p-6">
               <h2 className="text-base font-semibold">{pillar.title}</h2>
               <p className="text-vv-secondary mt-3 text-sm leading-relaxed">{pillar.detail}</p>
             </article>
@@ -123,7 +125,7 @@ export default function AboutPage() {
         </div>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <article className="vv-card rounded-3xl p-7">
+          <article className="vv-card animate-slide-up delay-300 rounded-3xl p-7">
             <h2 className="text-xl font-semibold">Delivery Timeline</h2>
             <div className="mt-5 space-y-5">
               {timeline.map((milestone) => (
@@ -137,14 +139,17 @@ export default function AboutPage() {
             </div>
           </article>
 
-          <article className="vv-card-glow rounded-3xl p-0 overflow-hidden">
+          <article className="vv-card-glow animate-slide-up delay-400 rounded-3xl overflow-hidden p-0">
             <div className="relative aspect-[16/10]">
-              <Image
+              <MotionImage
                 src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80"
                 alt="Creative studio desk with monitors"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
+                motionPreset="drift"
+                motionSpeed="medium"
+                motionDelayMs={220}
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,8,18,0.15),rgba(4,8,18,0.78))]" />
             </div>

@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { parsePlannerShots } from '@/lib/shot-planner';
 import { useAppStore } from '@/app/store';
+import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 
 export default function ProjectWorkspacePage({ params }: { params: { id: string } }) {
@@ -222,18 +222,21 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {project.shots.map((shot) => (
+          {project.shots.map((shot, index) => (
             <div key={shot.id} className="vv-card-hover group relative overflow-hidden">
               {/* Thumbnail */}
               <div className="bg-vv-base relative mb-4 aspect-video overflow-hidden rounded-lg">
                 {shot.thumbnailUrl ? (
-                  <Image
+                  <MotionImage
                     src={shot.thumbnailUrl}
                     alt={shot.title}
                     width={640}
                     height={360}
                     unoptimized
                     className="h-full w-full object-cover"
+                    motionPreset="drift"
+                    motionSpeed="medium"
+                    motionDelayMs={index * 110}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">

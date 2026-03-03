@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/app/store';
+import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 
 export default function TimelineEditorPage({ params }: { params: { id: string } }) {
@@ -237,13 +237,15 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         <div className="flex flex-col gap-3 lg:col-span-3">
           <div className="vv-card from-vv-surface to-vv-base relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-br">
             {previewClip?.thumbnailUrl ? (
-              <Image
+              <MotionImage
                 src={previewClip.thumbnailUrl}
                 alt={previewClip.title}
                 width={1280}
                 height={720}
                 unoptimized
                 className="h-full w-full object-contain"
+                motionPreset="pan"
+                motionSpeed="slow"
               />
             ) : previewClip ? (
               <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.2),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(56,189,248,0.16),transparent_42%)] p-8 text-center">
@@ -321,13 +323,15 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           {selectedClip ? (
             <div className="space-y-3">
               {selectedClip.thumbnailUrl && (
-                <Image
+                <MotionImage
                   src={selectedClip.thumbnailUrl}
                   alt={selectedClip.title}
                   width={640}
                   height={360}
                   unoptimized
                   className="aspect-video w-full rounded-lg object-cover"
+                  motionPreset="drift"
+                  motionSpeed="medium"
                 />
               )}
               <h4 className="text-sm font-semibold">{selectedClip.title}</h4>

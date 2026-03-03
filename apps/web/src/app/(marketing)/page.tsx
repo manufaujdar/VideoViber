@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import type { CSSProperties, PointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { MotionImage } from '@/components/motion-image';
 import styles from './cinematic-home.module.css';
 
 const jsonLd = {
@@ -283,12 +283,14 @@ export default function MarketingHomePage() {
           >
             <div className={styles.portal} style={portalVariables}>
               <div className={styles.portalScreen}>
-                <Image
+                <MotionImage
                   src={activeShot.image}
                   alt={`${activeShot.title} cinematic scene preview`}
                   fill
                   sizes="(max-width: 1100px) 100vw, 45vw"
                   className={styles.portalShot}
+                  motionPreset="pan"
+                  motionSpeed="slow"
                 />
                 <div className={styles.portalGlow} />
                 <div className={styles.portalScan} />
@@ -339,12 +341,15 @@ export default function MarketingHomePage() {
               style={{ '--delay': `${index * 90}ms` } as CSSProperties}
             >
               <div className={styles.missionMediaWrap}>
-                <Image
+                <MotionImage
                   src={mission.image}
                   alt={`${mission.title} cinematic visual`}
                   fill
                   sizes="(max-width: 1100px) 100vw, 33vw"
                   className={styles.missionMedia}
+                  motionPreset="drift"
+                  motionSpeed="medium"
+                  motionDelayMs={index * 180}
                 />
               </div>
               <div className={styles.missionBody}>
@@ -378,12 +383,15 @@ export default function MarketingHomePage() {
               className={styles.shotCard}
               style={{ '--shot-delay': `${index * 120}ms` } as CSSProperties}
             >
-              <Image
+              <MotionImage
                 src={shot.image}
                 alt={`${shot.title} still frame`}
                 fill
                 sizes="(max-width: 1100px) 100vw, 33vw"
                 className={styles.shotImage}
+                motionPreset="float"
+                motionSpeed="slow"
+                motionDelayMs={index * 220}
               />
               <div className={styles.shotOverlay} />
               <div className={styles.shotMeta}>
@@ -446,12 +454,14 @@ export default function MarketingHomePage() {
           </aside>
 
           <article className={styles.viewportPanel}>
-            <Image
+            <MotionImage
               src={selectedMode.previewImage}
               alt={`${selectedMode.label} cinematic mode preview`}
               fill
               sizes="(max-width: 1100px) 100vw, 45vw"
               className={styles.viewportImage}
+              motionPreset="pan"
+              motionSpeed="medium"
             />
             <div className={styles.viewportOverlay} />
             <div className={styles.viewportContent}>

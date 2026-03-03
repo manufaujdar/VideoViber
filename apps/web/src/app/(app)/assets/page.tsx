@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import { useState, useCallback } from 'react';
 import { useAppStore } from '@/app/store';
+import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 
 export default function AssetsPage() {
@@ -248,7 +248,7 @@ export default function AssetsPage() {
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
         >
-          {filteredAssets.map((asset) => (
+          {filteredAssets.map((asset, index) => (
             <div
               key={asset.id}
               className={`vv-card-hover group relative overflow-hidden ${selected.has(asset.id) ? 'ring-accent ring-2' : ''}`}
@@ -268,13 +268,16 @@ export default function AssetsPage() {
               </button>
               {/* Thumbnail */}
               <div className="bg-vv-base mb-3 aspect-video overflow-hidden rounded-lg">
-                <Image
+                <MotionImage
                   src={asset.url}
                   alt={asset.name}
                   width={640}
                   height={360}
                   unoptimized
                   className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  motionPreset="drift"
+                  motionSpeed="medium"
+                  motionDelayMs={index * 90}
                 />
               </div>
               {/* Info */}
@@ -352,7 +355,7 @@ export default function AssetsPage() {
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
         >
-          {filteredAssets.map((asset) => (
+          {filteredAssets.map((asset, index) => (
             <div
               key={asset.id}
               className={`flex items-center gap-4 px-4 py-3 transition-colors hover:bg-white/[0.02] ${selected.has(asset.id) ? 'bg-accent/5' : ''}`}
@@ -369,13 +372,16 @@ export default function AssetsPage() {
               >
                 {selected.has(asset.id) && '✓'}
               </button>
-              <Image
+              <MotionImage
                 src={asset.url}
                 alt={asset.name}
                 width={56}
                 height={40}
                 unoptimized
                 className="h-10 w-14 shrink-0 rounded object-cover"
+                motionPreset="float"
+                motionSpeed="fast"
+                motionDelayMs={index * 70}
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{asset.name}</p>

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
+import { MotionImage } from '@/components/motion-image';
 import { providerCatalog } from '@/lib/providers';
 
 export const metadata: Metadata = {
@@ -76,15 +76,17 @@ export default function FeaturesPage() {
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <article className="vv-card-glow rounded-3xl p-0 overflow-hidden">
+          <article className="vv-card-glow animate-slide-up rounded-3xl overflow-hidden p-0">
             <div className="relative aspect-[16/9]">
-              <Image
+              <MotionImage
                 src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1800&q=80"
                 alt="Futuristic cinematic cityscape"
                 fill
                 sizes="(max-width: 1024px) 100vw, 64vw"
                 className="object-cover"
                 priority
+                motionPreset="pan"
+                motionSpeed="slow"
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(1,5,12,0.08),rgba(1,5,12,0.78))]" />
             </div>
@@ -97,7 +99,7 @@ export default function FeaturesPage() {
             </div>
           </article>
 
-          <article className="vv-card rounded-3xl p-7">
+          <article className="vv-card animate-slide-up delay-100 rounded-3xl p-7">
             <h2 className="text-xl font-semibold">Execution Flow</h2>
             <div className="mt-4 space-y-4">
               {flow.map((item) => (
@@ -113,7 +115,7 @@ export default function FeaturesPage() {
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           {featureTracks.map((feature) => (
-            <article key={feature.title} className="vv-card-hover rounded-2xl p-6">
+            <article key={feature.title} className="vv-card-hover animate-slide-up delay-200 rounded-2xl p-6">
               <h2 className="text-base font-semibold">{feature.title}</h2>
               <p className="text-vv-secondary mt-3 text-sm leading-relaxed">{feature.detail}</p>
               <p className="text-cyan-200 mt-4 text-xs uppercase tracking-[0.12em]">{feature.metric}</p>
@@ -121,7 +123,7 @@ export default function FeaturesPage() {
           ))}
         </div>
 
-        <section className="vv-card mt-8 rounded-3xl p-7">
+        <section className="vv-card animate-slide-up delay-300 mt-8 rounded-3xl p-7">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">Provider Matrix</h2>

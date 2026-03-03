@@ -348,6 +348,112 @@
   animation: slide-in-right 0.3s ease-out forwards;
 }
 
+@keyframes vv-motion-drift {
+  0% {
+    translate: -1.4% -1.1%;
+    scale: 1.04;
+  }
+  50% {
+    translate: 1.5% 0.9%;
+    scale: 1.1;
+  }
+  100% {
+    translate: -0.8% 1.2%;
+    scale: 1.06;
+  }
+}
+
+@keyframes vv-motion-float {
+  0% {
+    translate: 0 0;
+    scale: 1.03;
+  }
+  50% {
+    translate: 0 -1.6%;
+    scale: 1.06;
+  }
+  100% {
+    translate: 0.5% 0.8%;
+    scale: 1.04;
+  }
+}
+
+@keyframes vv-motion-pan {
+  0% {
+    translate: -1.8% 0;
+    scale: 1.08;
+  }
+  50% {
+    translate: 1.2% -0.6%;
+    scale: 1.12;
+  }
+  100% {
+    translate: -0.9% 0.7%;
+    scale: 1.09;
+  }
+}
+
+@keyframes vv-motion-pulse {
+  0% {
+    scale: 1.02;
+    filter: saturate(1) contrast(1);
+  }
+  50% {
+    scale: 1.06;
+    filter: saturate(1.08) contrast(1.03);
+  }
+  100% {
+    scale: 1.03;
+    filter: saturate(1.02) contrast(1.01);
+  }
+}
+
+.vv-motion-image {
+  transform-origin: 50% 50%;
+  will-change: translate, scale, filter;
+  animation-delay: var(--vv-motion-delay, 0ms);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+}
+
+.vv-motion-drift {
+  animation-name: vv-motion-drift;
+}
+
+.vv-motion-float {
+  animation-name: vv-motion-float;
+}
+
+.vv-motion-pan {
+  animation-name: vv-motion-pan;
+}
+
+.vv-motion-pulse {
+  animation-name: vv-motion-pulse;
+}
+
+.vv-motion-slow {
+  animation-duration: 18s;
+}
+
+.vv-motion-medium {
+  animation-duration: 13s;
+}
+
+.vv-motion-fast {
+  animation-duration: 9s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vv-motion-image {
+    animation: none !important;
+    translate: 0 0;
+    scale: 1;
+    filter: none;
+  }
+}
+
 /* ─── Line Clamp ─────────────────────────────────────────── */
 .line-clamp-1 {
   overflow: hidden;

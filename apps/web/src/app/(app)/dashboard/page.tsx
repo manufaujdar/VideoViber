@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useAppStore } from '@/app/store';
+import { MotionImage } from '@/components/motion-image';
 
 export default function DashboardPage() {
   const projects = useAppStore((s) => s.projects);
@@ -242,7 +242,7 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <h2 className="text-lg font-bold">Recent Projects</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.slice(0, 6).map((project) => {
+            {projects.slice(0, 6).map((project, index) => {
               const completed = project.shots.filter((s) => s.status === 'completed').length;
               const total = project.shots.length;
               return (
@@ -254,13 +254,16 @@ export default function DashboardPage() {
                   {/* Thumbnail */}
                   <div className="bg-vv-base relative mb-4 aspect-video overflow-hidden rounded-lg">
                     {project.shots[0]?.thumbnailUrl ? (
-                      <Image
+                      <MotionImage
                         src={project.shots[0].thumbnailUrl}
                         alt={project.title}
                         width={640}
                         height={360}
                         unoptimized
                         className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                        motionPreset="drift"
+                        motionSpeed="medium"
+                        motionDelayMs={index * 140}
                       />
                     ) : (
                       <div className="from-vv-surface to-vv-base flex h-full items-center justify-center bg-gradient-to-br">

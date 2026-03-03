@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
+import { MotionImage } from '@/components/motion-image';
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -85,15 +85,17 @@ export default function PricingPage() {
           </p>
         </header>
 
-        <div className="vv-card-glow rounded-3xl p-0 overflow-hidden">
+        <div className="vv-card-glow animate-slide-up rounded-3xl overflow-hidden p-0">
           <div className="relative aspect-[16/7]">
-            <Image
+            <MotionImage
               src="https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1900&q=80"
               alt="Cinematic neon skyline"
               fill
               sizes="100vw"
               className="object-cover"
               priority
+              motionPreset="pan"
+              motionSpeed="slow"
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,14,0.15),rgba(2,6,14,0.85))]" />
           </div>
@@ -109,7 +111,7 @@ export default function PricingPage() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <article key={tier.name} className="vv-card-hover rounded-2xl p-6">
+            <article key={tier.name} className="vv-card-hover animate-slide-up delay-200 rounded-2xl p-6">
               <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">{tier.availability}</p>
               <h2 className="mt-2 text-lg font-semibold">{tier.name}</h2>
               <p className="text-vv-secondary mt-3 text-sm leading-relaxed">{tier.summary}</p>
@@ -128,7 +130,7 @@ export default function PricingPage() {
           ))}
         </div>
 
-        <section className="vv-card mt-8 rounded-3xl p-7">
+        <section className="vv-card animate-slide-up delay-300 mt-8 rounded-3xl p-7">
           <h2 className="text-xl font-semibold">Questions</h2>
           <div className="mt-5 space-y-3">
             {faq.map((item) => (
