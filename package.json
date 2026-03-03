@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "build:web": "node -e \"const fs=require('fs');fs.rmSync('apps/web/.next',{recursive:true,force:true});fs.rmSync('.next',{recursive:true,force:true});\" && pnpm --filter @videoviber/web build && node -e \"const fs=require('fs');if(fs.existsSync('apps/web/.next')) fs.cpSync('apps/web/.next','.next',{recursive:true});\"",
+    "build:web": "node -e \"const fs=require('fs');fs.rmSync('apps/web/.next',{recursive:true,force:true});fs.rmSync('.next',{recursive:true,force:true});\" && pnpm --filter @videoviber/web build && node scripts/relocate-next-output.cjs",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
