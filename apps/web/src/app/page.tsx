@@ -92,7 +92,7 @@ const capabilities = [
 
 export default function LandingPage() {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden">
+    <div className="relative flex flex-col overflow-hidden">
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"
@@ -100,7 +100,7 @@ export default function LandingPage() {
       />
 
       {/* ─── Background Effects ─────────────────────────── */}
-      <div className="pointer-events-none fixed inset-0">
+      <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-accent/10 blur-[120px] animate-glow-pulse" />
         <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-purple-500/8 blur-[120px] animate-glow-pulse delay-300" />
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[700px] w-[700px] rounded-full bg-accent/5 blur-[150px]" />
@@ -113,36 +113,35 @@ export default function LandingPage() {
         />
       </div>
 
-      {/* ─── Nav ────────────────────────────────────────── */}
-      <header className="glass-strong fixed top-0 z-50 w-full border-b border-white/5">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-purple-400 shadow-lg shadow-accent/30">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent" />
-              <svg className="relative ml-0.5 h-4 w-4 text-white drop-shadow-md" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold tracking-tight">VideoViber</span>
+      <header className="absolute inset-x-0 top-0 z-50 flex h-16 items-center justify-between px-6 backdrop-blur-md border-b border-vv-border-subtle bg-vv-base/50">
+        <Link href="/" className="flex items-center gap-2 text-vv-primary transition-opacity hover:opacity-80">
+          <svg className="h-7 w-7 text-accent" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <span className="text-lg font-bold tracking-tight">VideoViber</span>
+        </Link>
+
+        {/* Desktop Nav */}
+        <nav className="hidden items-center gap-6 sm:flex">
+          <Link href="/features" className="text-sm font-medium text-vv-secondary hover:text-vv-primary transition-colors">Features</Link>
+          <Link href="/pricing" className="text-sm font-medium text-vv-secondary hover:text-vv-primary transition-colors">Pricing</Link>
+          <Link href="/about" className="text-sm font-medium text-vv-secondary hover:text-vv-primary transition-colors">About</Link>
+        </nav>
+
+        {/* Global CTA */}
+        <div className="flex items-center gap-4">
+          <Link href="/login" className="hidden text-sm font-medium text-vv-secondary hover:text-vv-primary sm:block transition-colors">
+            Sign in
           </Link>
-          <nav className="hidden items-center gap-6 sm:flex">
-            <a href="#features" className="text-sm text-vv-secondary transition-colors hover:text-vv-primary">Features</a>
-            <a href="#how" className="text-sm text-vv-secondary transition-colors hover:text-vv-primary">How It Works</a>
-            <a href="#providers" className="text-sm text-vv-secondary transition-colors hover:text-vv-primary">Providers</a>
-            <Link href="/dashboard" className="vv-btn-primary">
-              Get Started
-            </Link>
-          </nav>
-          {/* Mobile */}
-          <Link href="/dashboard" className="vv-btn-primary sm:hidden">
-            Get Started
+          <Link href="/dashboard" className="vv-btn-primary rounded-xl px-5 py-2 text-sm">
+            Launch App
           </Link>
         </div>
       </header>
 
       {/* ─── Hero ───────────────────────────────────────── */}
-      <main className="relative flex flex-1 flex-col items-center px-6 pt-16">
-        <div className="mx-auto max-w-4xl text-center pt-20 sm:pt-28">
+      <main className="relative z-10 flex flex-1 flex-col items-center px-6 pt-32 pb-40">
+        <div className="mx-auto max-w-4xl text-center">
           {/* Badge */}
           <div className="animate-fade-in-up mb-8 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-2 text-sm text-vv-secondary backdrop-blur-sm">
             <span className="flex h-2 w-2">
@@ -169,283 +168,253 @@ export default function LandingPage() {
 
           {/* CTA */}
           <div className="animate-fade-in-up delay-300 flex flex-col items-center justify-center gap-4 opacity-0 sm:flex-row">
-            <Link href="/projects/new" className="vv-btn-primary px-8 py-3.5 text-base w-full sm:w-auto">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+            <Link href="/projects/new" className="vv-btn-primary rounded-xl px-8 py-3.5 text-base w-full sm:w-auto shadow-xl shadow-accent/20">
               Start Creating — Free
             </Link>
-            <a href="#how" className="vv-btn-ghost px-8 py-3.5 text-base w-full sm:w-auto">
-              How It Works
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <Link href="/features" className="vv-btn-ghost rounded-xl px-8 py-3.5 text-base w-full sm:w-auto">
+              Explore features
+              <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
-            </a>
-          </div>
-
-          {/* Trust signals */}
-          <div className="animate-fade-in-up delay-500 mt-16 flex flex-wrap items-center justify-center gap-6 text-xs text-vv-muted opacity-0">
-            {['BYOK — Your keys, your costs', 'Multi-provider (Gemini, Runway, Veo, Luma)', 'Non-destructive editing', 'AES-256 encrypted'].map((t) => (
-              <span key={t} className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-success" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                {t}
-              </span>
-            ))}
+            </Link>
           </div>
         </div>
 
         {/* ─── Editor Preview ──────────────────────────────── */}
-        <div className="relative mx-auto mt-20 w-full max-w-5xl animate-fade-in-up delay-500 opacity-0">
-          <div className="rounded-2xl border border-white/10 bg-vv-surface/80 p-1.5 shadow-2xl shadow-accent/5 backdrop-blur-xl">
-            <div className="rounded-xl bg-vv-base overflow-hidden">
-              {/* Mock editor toolbar */}
-              <div className="flex items-center gap-2 border-b border-white/5 px-4 py-2.5">
+        <div className="relative mx-auto mt-24 w-full max-w-5xl animate-slide-up delay-500 opacity-0">
+          {/* Glassmorphic Browser Window */}
+          <div className="glass rounded-2xl border border-vv-border-subtle p-2 shadow-2xl shadow-accent/10">
+            <div className="rounded-xl bg-vv-base overflow-hidden border border-vv-border shadow-inner">
+              {/* Mock Toolbar */}
+              <div className="flex items-center justify-between border-b border-vv-border-subtle px-4 py-3 bg-vv-surface">
                 <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-red-500/80" />
-                  <div className="h-3 w-3 rounded-full bg-amber-500/80" />
-                  <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
+                  <div className="h-3 w-3 rounded-full bg-vv-border-strong hover:bg-error transition-colors" />
+                  <div className="h-3 w-3 rounded-full bg-vv-border-strong hover:bg-warning transition-colors" />
+                  <div className="h-3 w-3 rounded-full bg-vv-border-strong hover:bg-success transition-colors" />
                 </div>
-                <div className="ml-4 flex-1 rounded bg-white/5 px-3 py-1 text-xs text-vv-muted text-center">
-                  VideoViber — Timeline Editor
+                <div className="text-xs font-semibold text-vv-secondary flex items-center gap-2">
+                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  workspace.videoviber.com
                 </div>
+                <div className="h-6 w-6 rounded-full bg-accent/20 border border-accent/40" />
               </div>
-              {/* Mock editor body */}
-              <div className="grid grid-cols-4 gap-px bg-white/5">
-                {/* Shot panel */}
-                <div className="bg-vv-base p-4 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-vv-muted/60 mb-3">Shots</p>
-                  {['Wide Establishing', 'Character Close-up', 'Detail Insert', 'Aerial Sweep'].map((s, i) => (
-                    <div key={s} className={`rounded-lg px-3 py-2 text-xs transition-colors ${i === 0 ? 'bg-accent/10 text-accent border border-accent/20' : 'text-vv-secondary hover:bg-white/[0.02]'}`}>
-                      {s}
-                    </div>
-                  ))}
-                </div>
-                {/* Preview area */}
-                <div className="col-span-2 bg-vv-base flex items-center justify-center py-16">
-                  <div className="text-center">
-                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
-                      <svg className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-vv-muted">Preview Window</p>
+
+              {/* Mock Editor Body */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-px bg-vv-border-subtle h-[300px] md:h-[400px]">
+                {/* Sidebar */}
+                <div className="hidden md:block bg-vv-base p-4">
+                  <div className="mb-4 h-6 w-24 rounded bg-vv-surface" />
+                  <div className="space-y-3">
+                    {[70, 50, 80, 40].map((w, i) => (
+                      <div key={i} className={`h-8 rounded bg-vv-surface transition-colors ${i === 0 ? 'bg-accent/10 border border-accent/20' : ''}`} style={{ width: `${w}%` }} />
+                    ))}
                   </div>
                 </div>
-                {/* Inspector */}
-                <div className="bg-vv-base p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-vv-muted/60 mb-3">Inspector</p>
-                  {['Duration', 'Provider', 'Status', 'Trim'].map((f) => (
-                    <div key={f} className="flex items-center justify-between py-1.5 text-xs">
-                      <span className="text-vv-muted">{f}</span>
-                      <span className="text-vv-disabled">—</span>
+
+                {/* Preview Window (Center) */}
+                <div className="col-span-1 md:col-span-2 bg-vv-base/90 relative flex flex-col">
+                  {/* Grid Lines */}
+                  <div className="absolute inset-0" style={{
+                    backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)`,
+                    backgroundSize: '20px 20px',
+                  }} />
+                  <div className="m-auto flex items-center justify-center h-48 w-full max-w-sm rounded-lg border border-vv-border bg-vv-surface shadow-2xl z-10">
+                    <div className="flex flex-col items-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20 text-accent mb-3">
+                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs text-vv-muted font-mono">Render Preview</span>
                     </div>
-                  ))}
+                  </div>
+                </div>
+
+                {/* Inspector */}
+                <div className="hidden md:block bg-vv-base p-4">
+                  <div className="space-y-6">
+                    <div>
+                      <div className="mb-3 h-4 w-20 rounded bg-vv-surface" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="h-10 rounded bg-vv-surface" />
+                        <div className="h-10 rounded bg-vv-surface" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-3 h-4 w-16 rounded bg-vv-surface" />
+                      <div className="h-2 rounded-full bg-vv-surface overflow-hidden">
+                        <div className="h-full w-2/3 bg-accent rounded-full" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              {/* Mock timeline */}
-              <div className="border-t border-white/5 p-4">
-                <div className="flex gap-1">
-                  {['from-violet-500/20 to-purple-500/20', 'from-blue-500/20 to-cyan-500/20', 'from-emerald-500/20 to-green-500/20', 'from-orange-500/20 to-amber-500/20'].map((g, i) => (
-                    <div key={i} className={`h-10 flex-1 rounded bg-gradient-to-r ${g} border border-white/5`} />
-                  ))}
+
+              {/* Mock Timeline */}
+              <div className="border-t border-vv-border-subtle bg-vv-base p-4 h-32">
+                <div className="mb-3 flex justify-between">
+                  <div className="flex gap-2">
+                    <div className="h-6 w-6 rounded bg-vv-surface" />
+                    <div className="h-6 w-6 rounded bg-vv-surface" />
+                    <div className="h-6 w-6 rounded bg-vv-surface" />
+                  </div>
+                  <div className="h-6 w-24 rounded bg-vv-surface" />
+                </div>
+                <div className="relative h-12 rounded bg-vv-surface border border-vv-border overflow-hidden flex gap-0.5 p-0.5">
+                  <div className="h-full w-1/4 rounded-sm bg-violet-500/30 border border-violet-500/50" />
+                  <div className="h-full w-1/3 rounded-sm bg-blue-500/30 border border-blue-500/50" />
+                  <div className="h-full w-auto flex-1 rounded-sm bg-emerald-500/30 border border-emerald-500/50" />
+                  {/* Playhead */}
+                  <div className="absolute top-0 bottom-0 left-1/3 w-0.5 bg-accent z-10 shadow-[0_0_8px_rgba(124,58,237,0.8)]">
+                    <div className="absolute -top-1 -translate-x-1/2 w-3 h-3 rounded bg-accent" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          {/* Glow under preview */}
-          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 h-40 w-3/4 rounded-full bg-accent/15 blur-[80px]" />
+          
+          {/* Under Glow */}
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 h-20 w-[90%] rounded-full bg-accent/20 blur-[60px]" />
         </div>
 
         {/* ─── Features Grid ───────────────────────────────── */}
         <section id="features" className="relative mx-auto mt-40 w-full max-w-6xl px-4">
           <div className="mb-16 text-center">
-            <p className="vv-badge bg-accent/10 text-accent mb-4">Capabilities</p>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Everything you need for{' '}
-              <span className="gradient-text">AI video production</span>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-vv-primary">
+              Built for <span className="gradient-text">speed and scale</span>
             </h2>
             <p className="mt-4 text-vv-secondary max-w-xl mx-auto">
-              Professional tools designed with simplicity in mind. Built for creators who move fast.
+              Everything you need to produce stunning AI video content without the technical overhead.
             </p>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, i) => (
               <div
                 key={feature.title}
-                className={`vv-card-hover group relative animate-fade-in-up opacity-0 ${
-                  ['delay-100', 'delay-200', 'delay-300', 'delay-100', 'delay-200', 'delay-300'][i]
-                }`}
+                className="vv-card-glow glass rounded-2xl border border-vv-border-subtle p-6 transition-all duration-300 hover:-translate-y-1 hover:border-vv-border-strong hover:bg-vv-surface"
               >
-                <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.gradient} text-accent ring-1 ring-accent/10 transition-transform group-hover:scale-110`}>
-                  {feature.icon}
-                </div>
-                <h3 className="mb-2 text-base font-bold">{feature.title}</h3>
-                <p className="text-sm leading-relaxed text-vv-secondary">{feature.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── How It Works ─────────────────────────────── */}
-        <section id="how" className="relative mx-auto mt-40 w-full max-w-6xl px-4">
-          <div className="mb-16 text-center">
-            <p className="vv-badge bg-accent/10 text-accent mb-4">Workflow</p>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Three steps to your first cut
-            </h2>
-            <p className="mt-4 text-vv-secondary">
-              From creative spark to editable video in minutes, not hours.
-            </p>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-3">
-            {[
-              {
-                step: '01', title: 'Describe Your Vibe',
-                desc: 'Enter a creative brief. Upload reference images. Our AI decomposes it into scenes, shots, and a continuity pack.',
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" /></svg>,
-                gradient: 'from-violet-500/20 to-purple-500/20',
-              },
-              {
-                step: '02', title: 'Generate & Iterate',
-                desc: 'Multi-provider generation with variant comparison. Extend, regenerate, edit. Everything is async, versioned, and non-destructive.',
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.015 4.356v4.992" /></svg>,
-                gradient: 'from-blue-500/20 to-cyan-500/20',
-              },
-              {
-                step: '03', title: 'Assemble & Export',
-                desc: 'Drag shots onto the timeline. Trim, reorder, swap clips. Export an editable rough cut as MP4 or sequence.',
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>,
-                gradient: 'from-emerald-500/20 to-green-500/20',
-              },
-            ].map((feature, i) => (
-              <div
-                key={feature.title}
-                className={`vv-card-hover group relative animate-fade-in-up opacity-0 ${
-                  i === 0 ? 'delay-100' : i === 1 ? 'delay-200' : 'delay-300'
-                }`}
-              >
-                <div className="absolute right-5 top-5 text-4xl font-black text-vv-border-subtle/50 transition-colors group-hover:text-accent/20">
-                  {feature.step}
-                </div>
                 <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.gradient} text-accent ring-1 ring-accent/10`}>
                   {feature.icon}
                 </div>
-                <h3 className="mb-3 text-lg font-bold">{feature.title}</h3>
+                <h3 className="mb-2 text-base font-bold text-vv-primary">{feature.title}</h3>
                 <p className="text-sm leading-relaxed text-vv-secondary">{feature.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ─── Providers ──────────────────────────────────── */}
-        <section id="providers" className="relative mx-auto mt-40 w-full max-w-4xl px-4">
-          <div className="mb-16 text-center">
-            <p className="vv-badge bg-accent/10 text-accent mb-4">Integrations</p>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Your favorite AI providers,{' '}
-              <span className="gradient-text">one workspace</span>
-            </h2>
-            <p className="mt-4 text-vv-secondary max-w-xl mx-auto">
-              Bring your own API keys. No markups, no middleman. Direct access to the world&apos;s best video models.
-            </p>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {providers.map((p, i) => (
-              <div key={p.name} className={`vv-card-hover group text-center animate-fade-in-up opacity-0 ${['delay-100', 'delay-200', 'delay-300', 'delay-400'][i]}`}>
-                <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${p.gradient} text-xl font-bold text-white shadow-lg ring-1 ring-white/10 transition-transform group-hover:scale-110`}>
+        {/* ─── Trusted Providers ────────────────────────────── */}
+        <section className="mx-auto mt-40 w-full max-w-5xl px-4 text-center">
+          <p className="mb-8 text-sm font-semibold uppercase tracking-widest text-vv-muted">
+            Powered by industry-leading models
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-8 opacity-60 grayscale filter transition-all hover:grayscale-0 sm:gap-16">
+            {providers.map((p) => (
+              <div key={p.name} className="flex items-center gap-3 font-bold text-xl text-vv-primary">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${p.gradient} text-white text-sm`}>
                   {p.letter}
                 </div>
-                <h3 className="text-lg font-bold">{p.name}</h3>
-                <p className="text-sm text-vv-muted mt-1">{p.sub}</p>
-                <p className="text-xs text-vv-disabled mt-3">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── Capabilities Grid ───────────────────────────── */}
-        <section className="relative mx-auto mt-40 w-full max-w-4xl px-4">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Built for professionals
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {capabilities.map((cap) => (
-              <div key={cap.label} className="vv-card group text-center transition-all hover:border-accent/30 hover:bg-accent/[0.02]">
-                <div className="mb-2 text-2xl text-accent">{cap.icon}</div>
-                <p className="text-sm font-bold">{cap.label}</p>
-                <p className="mt-1 text-xs text-vv-muted">{cap.value}</p>
+                {p.name}
               </div>
             ))}
           </div>
         </section>
 
         {/* ─── Bottom CTA ─────────────────────────────────── */}
-        <section className="relative mx-auto mt-40 w-full max-w-3xl px-4 pb-20">
-          <div className="vv-card relative overflow-hidden p-12 text-center border-accent/20">
+        <section className="relative mx-auto mt-40 w-full max-w-4xl px-4 pb-20">
+          <div className="relative overflow-hidden rounded-3xl border border-accent/20 bg-gradient-to-br from-accent/10 via-vv-surface to-purple-900/10 p-12 text-center shadow-2xl shadow-accent/5">
             {/* Glow */}
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-purple-500/5" />
-            <div className="absolute -top-20 left-1/2 -translate-x-1/2 h-40 w-2/3 rounded-full bg-accent/10 blur-[60px]" />
-            <div className="relative">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-                Ready to create?
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20 mask-image-gradient" />
+            
+            <div className="relative z-10">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-vv-primary mb-6">
+                Start creating today
               </h2>
-              <p className="text-vv-secondary mb-8 max-w-md mx-auto">
-                Start your first AI-powered video project in under 60 seconds. No credit card required.
+              <p className="text-lg text-vv-secondary mb-10 max-w-xl mx-auto">
+                Join creators shaping the future of video production. No credit card required to get started.
               </p>
-              <Link href="/projects/new" className="vv-btn-primary px-10 py-4 text-base">
-                Start Your First Project →
-              </Link>
+              <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link href="/signup" className="vv-btn-primary rounded-xl px-10 py-4 text-base shadow-lg shadow-accent/20">
+                  Create free account
+                </Link>
+                <Link href="/pricing" className="vv-btn-secondary rounded-xl px-10 py-4 text-base bg-vv-surface/50 backdrop-blur-md">
+                  View plans
+                </Link>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
       {/* ─── Footer ─────────────────────────────────────── */}
-      <footer className="relative border-t border-white/5 bg-vv-surface/50">
-        <div className="mx-auto max-w-6xl px-6 py-12">
-          <div className="grid gap-8 sm:grid-cols-4">
+      <footer className="relative border-t border-vv-border-subtle bg-vv-base z-10">
+        <div className="mx-auto max-w-7xl px-6 py-12">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
-            <div className="sm:col-span-2">
-              <Link href="/" className="flex items-center gap-3 mb-4">
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-purple-400 shadow-md shadow-accent/30">
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
-                  <svg className="relative ml-0.5 h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <span className="text-base font-bold tracking-tight">VideoViber</span>
+            <div className="lg:col-span-1">
+              <Link href="/" className="flex items-center gap-2 mb-4">
+                <svg className="h-6 w-6 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <span className="text-lg font-bold tracking-tight text-vv-primary">VideoViber</span>
               </Link>
-              <p className="text-sm text-vv-muted max-w-xs leading-relaxed">
-                Spec-driven video workspace. Turn vague creative intent into an editable first cut using AI.
+              <p className="text-sm text-vv-secondary">
+                Turn vague creative intent into an editable first cut using AI.
               </p>
+              <div className="mt-4 flex gap-4">
+                {['Twitter', 'GitHub', 'Discord'].map((social) => (
+                  <a key={social} href="#" className="text-vv-muted hover:text-accent transition-colors text-sm">
+                    {social}
+                  </a>
+                ))}
+              </div>
             </div>
-            {/* Product */}
+            
+            {/* Links */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-vv-muted/60 mb-4">Product</p>
-              <ul className="space-y-2.5">
-                {[{ label: 'Dashboard', href: '/dashboard' }, { label: 'New Project', href: '/projects/new' }, { label: 'Assets', href: '/assets' }, { label: 'Generations', href: '/generations' }].map((l) => (
-                  <li key={l.label}><Link href={l.href} className="text-sm text-vv-secondary hover:text-vv-primary transition-colors">{l.label}</Link></li>
+              <p className="text-sm font-bold text-vv-primary mb-4">Product</p>
+              <ul className="space-y-3">
+                {[{ label: 'Features', href: '/features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Changelog', href: '#' }].map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-sm text-vv-secondary hover:text-accent transition-colors">{link.label}</Link>
+                  </li>
                 ))}
               </ul>
             </div>
-            {/* Account */}
+
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-vv-muted/60 mb-4">Account</p>
-              <ul className="space-y-2.5">
-                {[{ label: 'Settings', href: '/settings' }, { label: 'API Keys', href: '/settings/keys' }].map((l) => (
-                  <li key={l.label}><Link href={l.href} className="text-sm text-vv-secondary hover:text-vv-primary transition-colors">{l.label}</Link></li>
+              <p className="text-sm font-bold text-vv-primary mb-4">Company</p>
+              <ul className="space-y-3">
+                {[{ label: 'About', href: '/about' }, { label: 'Careers', href: '#' }, { label: 'Contact', href: '#' }].map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-sm text-vv-secondary hover:text-accent transition-colors">{link.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-sm font-bold text-vv-primary mb-4">Legal</p>
+              <ul className="space-y-3">
+                {[{ label: 'Privacy Policy', href: '#' }, { label: 'Terms of Service', href: '#' }].map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-sm text-vv-secondary hover:text-accent transition-colors">{link.label}</Link>
+                  </li>
                 ))}
               </ul>
             </div>
           </div>
-          <div className="mt-10 border-t border-white/5 pt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-vv-disabled">© {new Date().getFullYear()} VideoViber. All rights reserved.</p>
-            <p className="text-xs text-vv-disabled">Built for creators who iterate fast</p>
+          
+          <div className="mt-12 border-t border-vv-border-subtle pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-vv-muted">
+              © {new Date().getFullYear()} VideoViber. All rights reserved.
+            </p>
+            <p className="text-sm text-vv-muted">
+              Designed for creators.
+            </p>
           </div>
         </div>
       </footer>

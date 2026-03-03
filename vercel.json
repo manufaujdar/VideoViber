@@ -3,6 +3,5 @@
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build:web",
-  "devCommand": "pnpm --filter @videoviber/web dev",
-  "outputDirectory": "apps/web/.next"
+  "devCommand": "pnpm --filter @videoviber/web dev"
 }
