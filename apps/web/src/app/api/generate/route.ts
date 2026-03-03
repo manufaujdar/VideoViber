@@ -117,6 +117,14 @@ async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: num
   }
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
+}
+
 function parseVeoVideoUri(operation: unknown): string | undefined {
   const op = operation as Record<string, any>;
 
@@ -145,45 +153,59 @@ async function generateShotPlanWithGemini(input: GenerateRequest) {
     );
   }
 
-  const response = await fetchWithTimeout(
-    `${geminiEndpoint}/models/gemini-2.0-flash:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: [
-                  'You are a senior video planner for a professional AI video editor.',
-                  `Create exactly ${input.shotCount} numbered shots for this brief.`,
-                  'Return output as one shot per line in this format:',
-                  '1. <Short Title>: <Prompt sentence with camera, lighting, motion, and style details>',
-                  '',
-                  `Creative Brief: ${input.prompt}`,
-                  `Shot Duration Target: ${input.duration} seconds`,
-                  `Aspect Ratio: ${input.aspectRatio}`,
-                  input.negativePrompt ? `Avoid: ${input.negativePrompt}` : '',
-                ]
-                  .filter(Boolean)
-                  .join('\n'),
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          maxOutputTokens: 2500,
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${geminiEndpoint}/models/gemini-2.0-flash:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
-      }),
-    },
-    25_000
-  );
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: [
+                    'You are a senior video planner for a professional AI video editor.',
+                    `Create exactly ${input.shotCount} numbered shots for this brief.`,
+                    'Return output as one shot per line in this format:',
+                    '1. <Short Title>: <Prompt sentence with camera, lighting, motion, and style details>',
+                    '',
+                    `Creative Brief: ${input.prompt}`,
+                    `Shot Duration Target: ${input.duration} seconds`,
+                    `Aspect Ratio: ${input.aspectRatio}`,
+                    input.negativePrompt ? `Avoid: ${input.negativePrompt}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n'),
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            maxOutputTokens: 2500,
+          },
+        }),
+      },
+      25_000
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: isAbortError(error)
+          ? 'Gemini planning request timed out.'
+          : 'Gemini planning request failed before a response was returned.',
+        provider: ProviderId.GEMINI,
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : undefined,
+      },
+      { status: isAbortError(error) ? 504 : 502 }
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -197,7 +219,19 @@ async function generateShotPlanWithGemini(input: GenerateRequest) {
     );
   }
 
-  const data = await response.json();
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Gemini planning response was not valid JSON.',
+        provider: ProviderId.GEMINI,
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Invalid JSON') : undefined,
+      },
+      { status: 502 }
+    );
+  }
   const generatedContent = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   const jobId = `gemini_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -239,25 +273,40 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
   const model = resolveVeoModel();
   const parameters = buildVeoParameters(input);
 
-  const response = await fetchWithTimeout(
-    `${geminiEndpoint}/models/${model}:predictLongRunning`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${geminiEndpoint}/models/${model}:predictLongRunning`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          instances: [
+            {
+              prompt: input.prompt,
+            },
+          ],
+          parameters,
+        }),
       },
-      body: JSON.stringify({
-        instances: [
-          {
-            prompt: input.prompt,
-          },
-        ],
-        parameters,
-      }),
-    },
-    30_000
-  );
+      30_000
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: isAbortError(error)
+          ? 'Veo generation request timed out while starting the operation.'
+          : 'Veo generation request failed before a response was returned.',
+        provider: ProviderId.VEO,
+        model,
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : undefined,
+      },
+      { status: isAbortError(error) ? 504 : 502 }
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -272,7 +321,20 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
     );
   }
 
-  const operation = await response.json();
+  let operation: any;
+  try {
+    operation = await response.json();
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Veo start response was not valid JSON.',
+        provider: ProviderId.VEO,
+        model,
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Invalid JSON') : undefined,
+      },
+      { status: 502 }
+    );
+  }
   const operationName = operation?.name;
 
   if (typeof operationName !== 'string' || operationName.length === 0) {
@@ -303,16 +365,29 @@ async function getVeoOperationStatus(operationName: string): Promise<VeoStatusPa
   }
 
   const safeName = operationName.replace(/^\/+/, '');
-  const response = await fetchWithTimeout(
-    `${geminiEndpoint}/${safeName}`,
-    {
-      method: 'GET',
-      headers: {
-        'x-goog-api-key': apiKey,
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${geminiEndpoint}/${safeName}`,
+      {
+        method: 'GET',
+        headers: {
+          'x-goog-api-key': apiKey,
+        },
       },
-    },
-    20_000
-  );
+      20_000
+    );
+  } catch (error) {
+    return {
+      operationName: safeName,
+      status: 'failed',
+      details: isAbortError(error)
+        ? 'Operation status request timed out.'
+        : `Operation status request failed before a response was returned. ${
+            process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : ''
+          }`.trim(),
+    };
+  }
 
   if (!response.ok) {
     const details = await response.text();
@@ -325,7 +400,18 @@ async function getVeoOperationStatus(operationName: string): Promise<VeoStatusPa
     };
   }
 
-  const operation = await response.json();
+  let operation: any;
+  try {
+    operation = await response.json();
+  } catch (error) {
+    return {
+      operationName: safeName,
+      status: 'failed',
+      details: `Operation status response was not valid JSON. ${
+        process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Invalid JSON') : ''
+      }`.trim(),
+    };
+  }
   const isDone = Boolean(operation?.done);
   const operationError = operation?.error;
 
@@ -454,16 +540,29 @@ async function proxyGeneratedVideo(videoUri: string) {
     );
   }
 
-  const response = await fetchWithTimeout(
-    videoUri,
-    {
-      method: 'GET',
-      headers: {
-        'x-goog-api-key': apiKey,
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      videoUri,
+      {
+        method: 'GET',
+        headers: {
+          'x-goog-api-key': apiKey,
+        },
       },
-    },
-    25_000
-  );
+      25_000
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: isAbortError(error)
+          ? 'Generated video fetch timed out.'
+          : 'Generated video fetch failed before a response was returned.',
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : undefined,
+      },
+      { status: isAbortError(error) ? 504 : 502 }
+    );
+  }
 
   if (!response.ok) {
     const details = await response.text();
@@ -629,39 +728,50 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const operationName = request.nextUrl.searchParams.get('operationName');
-  const videoUri = request.nextUrl.searchParams.get('videoUri');
+  try {
+    const operationName = request.nextUrl.searchParams.get('operationName');
+    const videoUri = request.nextUrl.searchParams.get('videoUri');
 
-  if (videoUri) {
-    return proxyGeneratedVideo(videoUri);
-  }
+    if (videoUri) {
+      return proxyGeneratedVideo(videoUri);
+    }
 
-  if (operationName) {
-    const status = await getVeoOperationStatus(operationName);
-    const statusCode =
-      status.status === 'completed' ? 200 : status.status === 'processing' ? 202 : 502;
+    if (operationName) {
+      const status = await getVeoOperationStatus(operationName);
+      const statusCode =
+        status.status === 'completed' ? 200 : status.status === 'processing' ? 202 : 502;
 
+      return NextResponse.json(
+        {
+          success: status.status !== 'failed',
+          provider: ProviderId.VEO,
+          workflow: 'video_status',
+          ...buildVideoResult(status),
+        },
+        { status: statusCode }
+      );
+    }
+
+    const providers = providerHealth();
+
+    return NextResponse.json({
+      status: 'ok',
+      defaultProvider: ProviderId.GEMINI,
+      providers,
+      configuredProviders: providers.filter((p) => p.configured).map((p) => p.id),
+      keyHints: {
+        gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_API_KEY', 'VEO_API_KEY'],
+        veoModel: resolveVeoModel(),
+      },
+    });
+  } catch (error) {
     return NextResponse.json(
       {
-        success: status.status !== 'failed',
-        provider: ProviderId.VEO,
-        workflow: 'video_status',
-        ...buildVideoResult(status),
+        error: 'Failed to process diagnostics request.',
+        details:
+          process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : undefined,
       },
-      { status: statusCode }
+      { status: 500 }
     );
   }
-
-  const providers = providerHealth();
-
-  return NextResponse.json({
-    status: 'ok',
-    defaultProvider: ProviderId.GEMINI,
-    providers,
-    configuredProviders: providers.filter((p) => p.configured).map((p) => p.id),
-    keyHints: {
-      gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_API_KEY', 'VEO_API_KEY'],
-      veoModel: resolveVeoModel(),
-    },
-  });
 }

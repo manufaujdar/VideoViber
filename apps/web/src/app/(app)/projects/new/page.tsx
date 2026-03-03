@@ -17,6 +17,19 @@ const shotCountOptions = [4, 6, 8, 10] as const;
 const clipDurationOptions = [4, 6, 8] as const;
 const maxFileSizeBytes = 10 * 1024 * 1024;
 
+async function readResponsePayload(response: Response) {
+  const raw = await response.text();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { raw };
+  }
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -177,10 +190,15 @@ export default function CreateProjectPage() {
           }),
         });
 
-        const payload = await response.json();
+        const payload = await readResponsePayload(response);
 
         if (!response.ok) {
-          throw new Error(payload?.error || `Planner request failed (${response.status})`);
+          throw new Error(
+            payload?.error ||
+              payload?.details ||
+              (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
+              `Planner request failed (${response.status})`
+          );
         }
 
         const planned = parsePlannerShots(payload?.result?.content ?? '', shotCount);

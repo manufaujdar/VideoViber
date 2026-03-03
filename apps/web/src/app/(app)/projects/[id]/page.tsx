@@ -7,6 +7,19 @@ import { useAppStore } from '@/app/store';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 
+async function readResponsePayload(response: Response) {
+  const raw = await response.text();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { raw };
+  }
+}
+
 export default function ProjectWorkspacePage({ params }: { params: { id: string } }) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === params.id));
 
@@ -50,9 +63,14 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
           }),
         });
 
-        const payload = await response.json();
+        const payload = await readResponsePayload(response);
         if (!response.ok) {
-          throw new Error(payload?.error || `Request failed (${response.status})`);
+          throw new Error(
+            payload?.error ||
+              payload?.details ||
+              (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
+              `Request failed (${response.status})`
+          );
         }
 
         let finalPayload = payload;
@@ -78,7 +96,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
             const statusResponse = await fetch(
               `/api/generate?operationName=${encodeURIComponent(operationName)}`
             );
-            const statusPayload = await statusResponse.json();
+            const statusPayload = await readResponsePayload(statusResponse);
 
             if (!statusResponse.ok && statusPayload?.status !== 'processing') {
               throw new Error(
