@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ProviderId } from '@videoviber/types';
 import { useAppStore } from '@/app/store';
+import { providerCatalog } from '@/lib/providers';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -11,6 +13,13 @@ export default function SettingsPage() {
 
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const selectableProviders = providerCatalog.filter((provider) => provider.id === ProviderId.GEMINI);
+
+  useEffect(() => {
+    if (!selectableProviders.some((provider) => provider.id === settings.defaultProvider)) {
+      updateSettings({ defaultProvider: ProviderId.GEMINI });
+    }
+  }, [selectableProviders, settings.defaultProvider, updateSettings]);
 
   const handleSave = () => {
     updateSettings({ displayName: displayName.trim() });
@@ -66,10 +75,11 @@ export default function SettingsPage() {
               <p className="text-xs text-vv-muted">Used for new shot generations</p>
             </div>
             <select value={settings.defaultProvider} onChange={(e) => { updateSettings({ defaultProvider: e.target.value }); toast.success('Provider updated'); }} className="vv-input w-full sm:w-40">
-              <option value="gemini">Gemini</option>
-              <option value="runway">Runway</option>
-              <option value="veo">Veo</option>
-              <option value="luma">Luma</option>
+              {selectableProviders.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.shortName}
+                </option>
+              ))}
             </select>
           </div>
           <div className="border-t border-white/5" />

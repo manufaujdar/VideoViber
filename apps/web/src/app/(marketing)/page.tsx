@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import type { CSSProperties, PointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import styles from './cinematic-home.module.css';
@@ -282,9 +283,11 @@ export default function MarketingHomePage() {
           >
             <div className={styles.portal} style={portalVariables}>
               <div className={styles.portalScreen}>
-                <img
+                <Image
                   src={activeShot.image}
                   alt={`${activeShot.title} cinematic scene preview`}
+                  fill
+                  sizes="(max-width: 1100px) 100vw, 45vw"
                   className={styles.portalShot}
                 />
                 <div className={styles.portalGlow} />
@@ -336,7 +339,13 @@ export default function MarketingHomePage() {
               style={{ '--delay': `${index * 90}ms` } as CSSProperties}
             >
               <div className={styles.missionMediaWrap}>
-                <img src={mission.image} alt={`${mission.title} cinematic visual`} className={styles.missionMedia} />
+                <Image
+                  src={mission.image}
+                  alt={`${mission.title} cinematic visual`}
+                  fill
+                  sizes="(max-width: 1100px) 100vw, 33vw"
+                  className={styles.missionMedia}
+                />
               </div>
               <div className={styles.missionBody}>
                 <span>{mission.difficulty}</span>
@@ -369,7 +378,13 @@ export default function MarketingHomePage() {
               className={styles.shotCard}
               style={{ '--shot-delay': `${index * 120}ms` } as CSSProperties}
             >
-              <img src={shot.image} alt={`${shot.title} still frame`} className={styles.shotImage} />
+              <Image
+                src={shot.image}
+                alt={`${shot.title} still frame`}
+                fill
+                sizes="(max-width: 1100px) 100vw, 33vw"
+                className={styles.shotImage}
+              />
               <div className={styles.shotOverlay} />
               <div className={styles.shotMeta}>
                 <strong>{shot.title}</strong>
@@ -431,9 +446,11 @@ export default function MarketingHomePage() {
           </aside>
 
           <article className={styles.viewportPanel}>
-            <img
+            <Image
               src={selectedMode.previewImage}
               alt={`${selectedMode.label} cinematic mode preview`}
+              fill
+              sizes="(max-width: 1100px) 100vw, 45vw"
               className={styles.viewportImage}
             />
             <div className={styles.viewportOverlay} />

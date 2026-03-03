@@ -99,15 +99,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </p>
 
               <div className="mt-6 flex gap-3">
-                {['X', 'GitHub', 'Discord'].map((social) => (
-                  <a
-                    key={social}
-                    href="#"
+                {[
+                  { href: '/blog', label: 'Journal' },
+                  { href: '/security', label: 'Security' },
+                  { href: '/contact', label: 'Contact' },
+                ].map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
                     className="inline-flex rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.1em] text-vv-secondary transition-colors hover:text-vv-primary"
-                    aria-label={social}
                   >
-                    {social}
-                  </a>
+                    {link.label}
+                  </Link>
                 ))}
               </div>
             </div>

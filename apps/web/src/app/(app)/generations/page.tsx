@@ -139,7 +139,7 @@ export default function GenerationsPage() {
         </div>
       ) : (
         <div className="vv-card relative flex flex-col items-center overflow-hidden py-20">
-          <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.5) 1px, transparent 0)`, backgroundSize: '24px 24px' }} />
+          <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, rgba(82, 222, 255, 0.5) 1px, transparent 0)`, backgroundSize: '24px 24px' }} />
           <div className="relative">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/10 ring-1 ring-blue-500/20 animate-float">
               <svg className="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

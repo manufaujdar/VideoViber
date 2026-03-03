@@ -323,12 +323,12 @@ export default function DashboardPage() {
           <div
             className="absolute inset-0 opacity-[0.015]"
             style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.5) 1px, transparent 0)`,
+              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(82, 222, 255, 0.5) 1px, transparent 0)`,
               backgroundSize: '24px 24px',
             }}
           />
           <div className="relative flex flex-col items-center justify-center py-16">
-            <div className="from-accent/20 ring-accent/20 animate-float mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br to-purple-500/10 ring-1">
+            <div className="from-accent/20 ring-accent/20 animate-float mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br to-amber-300/10 ring-1">
               <svg
                 className="text-accent h-8 w-8"
                 fill="none"

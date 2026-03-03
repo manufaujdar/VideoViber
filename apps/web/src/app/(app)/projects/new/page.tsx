@@ -1,64 +1,20 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { ProviderId } from '@videoviber/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { generateShotsForProject, useAppStore } from '@/app/store';
+import {
+  defaultProviderRuntimeHealth,
+  providerCatalog,
+  type ProviderRuntimeHealth,
+} from '@/lib/providers';
+import { parsePlannerShots } from '@/lib/shot-planner';
 import { toast } from 'sonner';
-
-const providers = [
-  { name: 'Gemini', sub: 'Google AI', id: 'gemini', gradient: 'from-blue-500/10 to-indigo-500/10' },
-  {
-    name: 'Runway',
-    sub: 'Gen-3 Alpha',
-    id: 'runway',
-    gradient: 'from-violet-500/10 to-purple-500/10',
-  },
-  { name: 'Veo', sub: 'Vertex AI', id: 'veo', gradient: 'from-blue-500/10 to-cyan-500/10' },
-  {
-    name: 'Luma',
-    sub: 'Dream Machine',
-    id: 'luma',
-    gradient: 'from-emerald-500/10 to-green-500/10',
-  },
-];
 
 const aspectRatioOptions = ['16:9', '9:16', '1:1', '4:5', '21:9'] as const;
 const shotCountOptions = [4, 6, 8, 10] as const;
 const maxFileSizeBytes = 10 * 1024 * 1024;
-
-function parsePlannerShots(content: string, maxShots: number) {
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^\s*(?:shot\s*\d+[:.-]?|\d+[).:-]?|[-*])\s*/i, ''))
-    .filter((line) => line.length > 20);
-
-  const deduped = Array.from(new Set(lines)).slice(0, maxShots);
-
-  return deduped.map((line, index) => {
-    const titled = line.match(/^([^:]{4,40}):\s*(.+)$/);
-    if (titled) {
-      const [, rawTitle = '', rawPrompt = ''] = titled;
-      return {
-        title: rawTitle.trim() || `Shot ${index + 1}`,
-        prompt: rawPrompt.trim() || line,
-      };
-    }
-
-    const fallbackTitle = line
-      .replace(/[.!?].*$/, '')
-      .split(/\s+/)
-      .slice(0, 4)
-      .join(' ')
-      .trim();
-
-    return {
-      title: fallbackTitle || `Shot ${index + 1}`,
-      prompt: line,
-    };
-  });
-}
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -83,12 +39,68 @@ export default function CreateProjectPage() {
 
   const [title, setTitle] = useState('');
   const [brief, setBrief] = useState('');
-  const [provider, setProvider] = useState(settings.defaultProvider || 'gemini');
+  const [provider, setProvider] = useState<ProviderId>(
+    (settings.defaultProvider as ProviderId) || ProviderId.GEMINI
+  );
+  const [providerHealth, setProviderHealth] = useState<ProviderRuntimeHealth[]>(
+    defaultProviderRuntimeHealth
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [shotCount, setShotCount] = useState<number>(6);
   const [durationSeconds, setDurationSeconds] = useState<number>(5);
   const [aspectRatio, setAspectRatio] = useState<(typeof aspectRatioOptions)[number]>('16:9');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadProviderHealth = async () => {
+      try {
+        const response = await fetch('/api/generate', { method: 'GET' });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (!mounted || !Array.isArray(payload?.providers)) return;
+        const parsed = payload.providers.filter(
+          (item: unknown): item is ProviderRuntimeHealth =>
+            Boolean(
+              item &&
+                typeof item === 'object' &&
+                'id' in item &&
+                'configured' in item &&
+                'serverImplemented' in item
+            )
+        );
+        if (parsed.length > 0) {
+          setProviderHealth(parsed);
+        }
+      } catch {
+        // Keep defaults for offline/local environments.
+      }
+    };
+
+    loadProviderHealth();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const healthByProvider = useMemo(
+    () =>
+      providerHealth.reduce(
+        (acc, entry) => {
+          acc[entry.id] = entry;
+          return acc;
+        },
+        {} as Record<ProviderId, ProviderRuntimeHealth>
+      ),
+    [providerHealth]
+  );
+
+  useEffect(() => {
+    const active = healthByProvider[provider];
+    if (!active?.serverImplemented) {
+      setProvider(ProviderId.GEMINI);
+    }
+  }, [healthByProvider, provider]);
 
   const canSubmit = useMemo(
     () => !submitting && title.trim().length > 0 && brief.trim().length > 0,
@@ -140,7 +152,7 @@ export default function CreateProjectPage() {
     }
 
     setSubmitting(true);
-    toast.loading('Planning shots with AI...', { id: 'create' });
+    toast.loading('Planning shots...', { id: 'create' });
 
     try {
       const baseShots = generateShotsForProject(brief, provider, shotCount).map((shot) => ({
@@ -149,7 +161,7 @@ export default function CreateProjectPage() {
       }));
 
       let finalShots = baseShots;
-      let planningSource = 'local planner';
+      let planningSource = 'local scaffold';
 
       try {
         const response = await fetch('/api/generate', {
@@ -187,7 +199,7 @@ export default function CreateProjectPage() {
       } catch (plannerError) {
         const plannerMessage =
           plannerError instanceof Error ? plannerError.message : 'Planner unavailable';
-        toast.warning(`Falling back to local shot planner: ${plannerMessage}`);
+        toast.warning(`Using local scaffold: ${plannerMessage}`);
       }
 
       const projectId = addProject({
@@ -414,32 +426,54 @@ export default function CreateProjectPage() {
         <div className="space-y-3">
           <label className="vv-label">Planning Provider</label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {providers.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setProvider(p.id)}
-                className={`vv-card group cursor-pointer text-center transition-all duration-200 ${
-                  provider === p.id
-                    ? 'border-accent/50 bg-accent/5 ring-accent/20 ring-1'
-                    : 'hover:border-accent/20'
-                }`}
-              >
-                <div
-                  className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${p.gradient} text-accent ring-accent/10 text-sm font-bold ring-1`}
+            {providerCatalog.map((p) => {
+              const runtime = healthByProvider[p.id];
+              const isImplemented = runtime?.serverImplemented ?? false;
+              const isConfigured = runtime?.configured ?? false;
+              const isActive = provider === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={!isImplemented}
+                  onClick={() => setProvider(p.id)}
+                  className={`vv-card group cursor-pointer text-center transition-all duration-200 ${
+                    isActive
+                      ? 'border-accent/50 bg-accent/5 ring-accent/20 ring-1'
+                      : 'hover:border-accent/20'
+                  } ${!isImplemented ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
-                  {p.name[0]}
-                </div>
-                <p className="text-sm font-semibold">{p.name}</p>
-                <p className="text-vv-muted mt-0.5 text-xs">{p.sub}</p>
-              </button>
-            ))}
+                  <div
+                    className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${p.gradient} text-accent ring-accent/10 text-sm font-bold ring-1`}
+                  >
+                    {p.letter}
+                  </div>
+                  <p className="text-sm font-semibold">{p.shortName}</p>
+                  <p className="text-vv-muted mt-0.5 text-xs">
+                    {!isImplemented
+                      ? 'Adapter pending'
+                      : isConfigured
+                        ? 'Configured'
+                        : 'Missing server key'}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="bg-vv-surface/50 flex flex-col gap-4 rounded-xl border border-white/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-vv-secondary text-sm">
-            Plan {shotCount} shots at {durationSeconds}s each in {aspectRatio}.
-          </p>
+          <div className="text-sm">
+            <p className="text-vv-secondary">
+              Plan {shotCount} shots at {durationSeconds}s each in {aspectRatio}.
+            </p>
+            {(healthByProvider[provider]?.configured ?? false) === false && (
+              <p className="text-vv-muted mt-1 text-xs">
+                Provider key is missing on the server. The project will still be created using local
+                shot scaffolding.
+              </p>
+            )}
+          </div>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAppStore } from '@/app/store';
 import { Toaster } from 'sonner';
 
 const navItems = [
@@ -159,6 +160,8 @@ function NavLink({
 
 function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const displayName = useAppStore((state) => state.settings.displayName.trim());
+  const projectCount = useAppStore((state) => state.projects.length);
 
   useEffect(() => {
     onClose();
@@ -183,7 +186,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
             href="/"
             className="flex items-center gap-3 transition-colors hover:bg-white/[0.02]"
           >
-            <div className="from-accent shadow-accent/30 relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br to-purple-400 shadow-md">
+            <div className="from-accent shadow-accent/30 relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br to-amber-300 shadow-md">
               <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent" />
               <svg
                 className="relative ml-0.5 h-3.5 w-3.5 text-white drop-shadow-sm"
@@ -237,12 +240,14 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
         {/* User */}
         <div className="border-t border-white/5 p-4">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]">
-            <div className="from-accent/20 text-accent ring-accent/20 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br to-purple-500/20 text-sm font-bold ring-1">
+            <div className="from-accent/20 text-accent ring-accent/20 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br to-amber-300/20 text-sm font-bold ring-1">
               U
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">User</p>
-              <p className="text-vv-muted text-xs">Free Plan</p>
+              <p className="truncate text-sm font-semibold">
+                {displayName || 'Workspace Owner'}
+              </p>
+              <p className="text-vv-muted text-xs">{projectCount} project(s)</p>
             </div>
           </div>
         </div>

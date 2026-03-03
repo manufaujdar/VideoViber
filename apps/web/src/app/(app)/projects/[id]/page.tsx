@@ -3,14 +3,17 @@
 import { useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useAppStore, simulateGeneration } from '@/app/store';
+import { parsePlannerShots } from '@/lib/shot-planner';
+import { useAppStore } from '@/app/store';
 import { toast } from 'sonner';
 
 export default function ProjectWorkspacePage({ params }: { params: { id: string } }) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === params.id));
 
   const addGeneration = useAppStore((s) => s.addGeneration);
+  const updateGeneration = useAppStore((s) => s.updateGeneration);
   const updateProject = useAppStore((s) => s.updateProject);
+  const updateShot = useAppStore((s) => s.updateShot);
 
   const handleGenerateShot = useCallback(
     async (shotId: string) => {
@@ -28,18 +31,64 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
         progress: 0,
       });
 
+      updateShot(project.id, shot.id, { status: 'processing' });
+      updateGeneration(genId, { status: 'processing', progress: 20, error: null });
       toast.loading(`Generating "${shot.title}"...`, { id: genId });
-      const store = useAppStore.getState();
-      await simulateGeneration(store, project.id, shotId, genId);
 
-      const updated = useAppStore.getState().generations.find((g) => g.id === genId);
-      if (updated?.status === 'completed') {
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: shot.prompt,
+            provider: shot.provider,
+            duration: shot.duration,
+            aspectRatio: '16:9',
+            shotCount: 1,
+          }),
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error || `Request failed (${response.status})`);
+        }
+
+        const planned = parsePlannerShots(payload?.result?.content ?? '', 1)[0];
+        updateShot(project.id, shot.id, {
+          status: 'completed',
+          title: planned?.title || shot.title,
+          prompt: planned?.prompt || shot.prompt,
+          thumbnailUrl: null,
+          videoUrl: null,
+        });
+        updateGeneration(genId, {
+          status: 'completed',
+          progress: 100,
+          completedAt: new Date().toISOString(),
+          error: null,
+        });
         toast.success(`"${shot.title}" generated!`, { id: genId });
-      } else {
-        toast.error(`"${shot.title}" failed`, { id: genId });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Generation failed';
+        updateShot(project.id, shot.id, { status: 'failed' });
+        updateGeneration(genId, {
+          status: 'failed',
+          progress: 0,
+          error: message,
+          completedAt: new Date().toISOString(),
+        });
+        toast.error(`"${shot.title}" failed: ${message}`, { id: genId });
+      } finally {
+        const snapshot = useAppStore.getState().getProject(project.id);
+        if (snapshot) {
+          const allDone = snapshot.shots.every(
+            (item) => item.status === 'completed' || item.status === 'failed'
+          );
+          updateProject(snapshot.id, { status: allDone ? 'ready' : 'generating' });
+        }
       }
     },
-    [project, addGeneration]
+    [project, addGeneration, updateGeneration, updateProject, updateShot]
   );
 
   const handleGenerateAll = useCallback(async () => {

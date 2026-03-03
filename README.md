@@ -108,7 +108,13 @@ This repo includes a root [`vercel.json`](vercel.json) with explicit Next.js + m
 
 - `framework: nextjs`
 - `buildCommand: pnpm build:web` (builds `apps/web`)
-- `outputDirectory: null` (prevents stale static-site `public` output settings)
+- `outputDirectory: apps/web/.next` (ensures Vercel reads the Next output from the workspace app)
+
+If your Vercel project was created at repo root, keep these settings in sync:
+
+- Root directory: repo root
+- Build command: `pnpm build:web`
+- Output directory: `apps/web/.next`
 
 Recommended CLI flow:
 
@@ -119,6 +125,9 @@ npx vercel@latest pull --yes --environment=production
 npx vercel@latest build --prod
 npx vercel@latest deploy --prebuilt --prod
 ```
+
+Provider runtime diagnostics are available at `/settings/keys` in the app. It reads `/api/generate`
+health status and shows which providers are implemented/configured from server env vars.
 
 ---
 

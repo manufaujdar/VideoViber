@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/app/store';
 import { toast } from 'sonner';
 
@@ -17,9 +17,19 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const [_history] = useState<string[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const completedShots = project?.shots.filter((s) => s.status === 'completed') ?? [];
-  const totalDuration = completedShots.reduce((a, s) => a + s.duration, 0);
-  const selectedClip = completedShots.find((s) => s.id === selectedClipId);
+  const completedShots = useMemo(
+    () => project?.shots.filter((s) => s.status === 'completed') ?? [],
+    [project]
+  );
+  const totalDuration = useMemo(
+    () => completedShots.reduce((a, s) => a + s.duration, 0),
+    [completedShots]
+  );
+  const selectedClip = useMemo(
+    () => completedShots.find((s) => s.id === selectedClipId),
+    [completedShots, selectedClipId]
+  );
+  const previewClip = selectedClip ?? completedShots[0] ?? null;
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) setHistoryIndex((i) => i - 1);
@@ -49,7 +59,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     return () => window.removeEventListener('keydown', handler);
   }, [handleRedo, handleUndo]);
 
-  // Playback simulation
+  // Playback preview ticker
   useEffect(() => {
     if (!isPlaying || totalDuration === 0) return;
     const interval = setInterval(() => {
@@ -64,13 +74,52 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     return () => clearInterval(interval);
   }, [isPlaying, totalDuration]);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(() => {
     if (!project) return;
-    toast.loading('Exporting rough cut...', { id: 'export' });
-    await new Promise((r) => setTimeout(r, 2500));
+
+    if (completedShots.length === 0) {
+      toast.error('No completed clips available to export.');
+      return;
+    }
+
+    const exportPayload = {
+      exportedAt: new Date().toISOString(),
+      projectId: project.id,
+      projectTitle: project.title,
+      totalDurationSeconds: totalDuration,
+      clips: completedShots.map((shot, index) => ({
+        order: index + 1,
+        id: shot.id,
+        title: shot.title,
+        prompt: shot.prompt,
+        provider: shot.provider,
+        durationSeconds: shot.duration,
+        thumbnailUrl: shot.thumbnailUrl,
+        videoUrl: shot.videoUrl,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+      type: 'application/json',
+    });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const slug =
+      project.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'videoviber-project';
+
+    link.href = objectUrl;
+    link.download = `${slug}-rough-cut.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+
     updateProject(project.id, { status: 'exported' });
-    toast.success('Rough cut exported successfully!', { id: 'export' });
-  }, [project, updateProject]);
+    toast.success('Export manifest downloaded.');
+  }, [project, completedShots, totalDuration, updateProject]);
 
   const formatTime = (t: number) => {
     const m = Math.floor(t / 60);
@@ -187,24 +236,39 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         {/* Preview */}
         <div className="flex flex-col gap-3 lg:col-span-3">
           <div className="vv-card from-vv-surface to-vv-base relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-br">
-            {selectedClip?.thumbnailUrl ? (
+            {previewClip?.thumbnailUrl ? (
               <Image
-                src={selectedClip.thumbnailUrl}
-                alt={selectedClip.title}
+                src={previewClip.thumbnailUrl}
+                alt={previewClip.title}
                 width={1280}
                 height={720}
                 unoptimized
                 className="h-full w-full object-contain"
               />
-            ) : completedShots[0]?.thumbnailUrl ? (
-              <Image
-                src={completedShots[0].thumbnailUrl}
-                alt="Preview"
-                width={1280}
-                height={720}
-                unoptimized
-                className="h-full w-full object-contain opacity-50"
-              />
+            ) : previewClip ? (
+              <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.2),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(56,189,248,0.16),transparent_42%)] p-8 text-center">
+                <div>
+                  <div className="bg-accent/10 ring-accent/20 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ring-1">
+                    <svg
+                      className="text-accent h-7 w-7"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold">{previewClip.title}</p>
+                  <p className="text-vv-muted mt-2 max-w-md text-xs leading-relaxed">
+                    {previewClip.prompt}
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="text-center">
                 <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">

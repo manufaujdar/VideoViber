@@ -1,53 +1,75 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-    title: 'Account',
-    description: 'Sign in or create your VideoViber account.',
+  title: 'Account',
+  description: 'Authenticate into VideoViber and continue into the cinematic workspace.',
 };
 
+const checklist = [
+  'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+  'Use /settings/keys to confirm provider runtime diagnostics.',
+  'Create a project and generate shots to validate full flow.',
+];
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-vv-base p-4">
-            {/* ─── Aurora Background ────────────────────────── */}
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-purple-600/20 blur-[120px] animate-gradient" />
-                <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-indigo-600/15 blur-[120px] animate-gradient delay-500" />
-                <div className="absolute left-1/2 top-1/3 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-fuchsia-600/10 blur-[100px] animate-gradient delay-300" />
-            </div>
+  return (
+    <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(900px_560px_at_8%_0%,rgba(82,222,255,0.16),transparent_60%),radial-gradient(760px_520px_at_94%_12%,rgba(255,175,103,0.12),transparent_62%),linear-gradient(180deg,#02040a_0%,#040913_55%,#02050a_100%)]" />
 
-            {/* ─── Grid Dots ───────────────────────────────── */}
-            <div
-                className="pointer-events-none absolute inset-0 opacity-[0.03]"
-                style={{
-                    backgroundImage: 'radial-gradient(circle, #7c3aed 1px, transparent 1px)',
-                    backgroundSize: '24px 24px',
-                }}
+      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="vv-card-glow hidden overflow-hidden rounded-3xl p-0 lg:block">
+          <div className="relative aspect-[9/10]">
+            <Image
+              src="https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1400&q=80"
+              alt="Cinematic abstract corridor"
+              fill
+              sizes="40vw"
+              className="object-cover"
+              priority
             />
-
-            {/* ─── Content ─────────────────────────────────── */}
-            <div className="relative z-10 w-full max-w-md">
-                {/* Logo */}
-                <Link
-                    href="/"
-                    className="mb-8 flex items-center justify-center gap-2 text-vv-primary transition-opacity hover:opacity-80"
-                >
-                    <svg className="h-8 w-8 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                    </svg>
-                    <span className="text-xl font-bold tracking-tight">VideoViber</span>
-                </Link>
-
-                {/* Auth Card */}
-                <div className="glass rounded-2xl border border-vv-border-subtle p-8 shadow-2xl">
-                    {children}
-                </div>
-
-                {/* Footer */}
-                <p className="mt-6 text-center text-xs text-vv-muted">
-                    © {new Date().getFullYear()} VideoViber. All rights reserved.
-                </p>
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,6,14,0.25),rgba(3,6,14,0.85))]" />
+            <div className="absolute inset-x-6 bottom-6">
+              <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Developer Onboarding</p>
+              <h1 className="mt-2 text-2xl font-semibold">Authenticate, configure, and ship.</h1>
+              <p className="text-vv-secondary mt-3 text-sm leading-relaxed">
+                Account routes are now wired for real Supabase auth flows. If environment variables
+                are missing, the UI shows exact setup requirements instead of simulated success.
+              </p>
             </div>
-        </div>
-    );
+          </div>
+
+          <div className="border-t border-white/10 p-6">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.1em] text-vv-secondary">
+              Fast Setup Checklist
+            </h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              {checklist.map((item) => (
+                <li key={item} className="text-vv-secondary flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-cyan-300" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto flex w-full max-w-lg flex-col justify-center">
+          <Link href="/" className="mb-6 inline-flex items-center gap-3 self-center">
+            <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-cyan-300 to-amber-300 shadow-[0_0_22px_rgba(82,222,255,0.65)]" />
+            <span className="text-sm font-semibold uppercase tracking-[0.2em]">VideoViber</span>
+          </Link>
+
+          <div className="glass-strong rounded-3xl border border-white/12 p-7 shadow-[0_30px_80px_rgba(0,0,0,0.4)] sm:p-8">
+            {children}
+          </div>
+
+          <p className="text-vv-muted mt-5 text-center text-xs uppercase tracking-[0.1em]">
+            © {new Date().getFullYear()} VideoViber
+          </p>
+        </section>
+      </div>
+    </div>
+  );
 }
