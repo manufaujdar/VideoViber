@@ -8,19 +8,28 @@ export default function DashboardPage() {
   const projects = useAppStore((s) => s.projects);
   const generations = useAppStore((s) => s.generations);
 
-  const totalProjects = projects.length;
+  const activeProjects = projects.filter((project) => !project.archivedAt);
+  const archivedProjects = projects.filter((project) => Boolean(project.archivedAt)).length;
+  const totalProjects = activeProjects.length;
   const activeGenerations = generations.filter(
     (g) => g.status === 'processing' || g.status === 'queued'
   ).length;
-  const completedShots = projects.reduce(
+  const completedShots = activeProjects.reduce(
     (acc, p) => acc + p.shots.filter((s) => s.status === 'completed').length,
     0
   );
-  const exports = projects.filter((p) => p.status === 'exported').length;
+  const recentProjects = [...activeProjects]
+    .sort((a, b) => {
+      if (a.starred !== b.starred) {
+        return a.starred ? -1 : 1;
+      }
+      return b.updatedAt.localeCompare(a.updatedAt);
+    })
+    .slice(0, 6);
 
   const stats = [
     {
-      label: 'Total Projects',
+      label: 'Active Projects',
       value: totalProjects.toString(),
       icon: (
         <svg
@@ -83,8 +92,8 @@ export default function DashboardPage() {
       bg: 'bg-emerald-500/5',
     },
     {
-      label: 'Exports',
-      value: exports.toString(),
+      label: 'Archived Projects',
+      value: archivedProjects.toString(),
       icon: (
         <svg
           className="h-5 w-5"
@@ -100,8 +109,8 @@ export default function DashboardPage() {
           />
         </svg>
       ),
-      accent: 'text-accent',
-      bg: 'bg-accent/5',
+      accent: 'text-amber-300',
+      bg: 'bg-amber-500/10',
     },
   ];
 
@@ -170,9 +179,9 @@ export default function DashboardPage() {
             ),
           },
           {
-            title: 'Upload Assets',
-            desc: 'Reference images & clips',
-            href: '/assets',
+            title: 'Manage Projects',
+            desc: 'Star, rename, archive',
+            href: '/projects',
             icon: (
               <svg
                 className="h-5 w-5"
@@ -184,7 +193,7 @@ export default function DashboardPage() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
                 />
               </svg>
             ),
@@ -238,11 +247,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Projects */}
-      {projects.length > 0 ? (
+      {recentProjects.length > 0 ? (
         <div className="space-y-4">
           <h2 className="text-lg font-bold">Recent Projects</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.slice(0, 6).map((project, index) => {
+            {recentProjects.map((project, index) => {
               const completed = project.shots.filter((s) => s.status === 'completed').length;
               const total = project.shots.length;
               return (
@@ -282,19 +291,26 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <div className="absolute right-2 top-2">
-                      <span
-                        className={`vv-badge text-xs ${
-                          project.status === 'ready'
-                            ? 'bg-success/20 text-success'
-                            : project.status === 'generating'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : project.status === 'exported'
-                                ? 'bg-accent/20 text-accent'
-                                : 'text-vv-muted bg-white/10'
-                        }`}
-                      >
-                        {project.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {project.starred && (
+                          <span className="vv-badge bg-amber-500/20 text-amber-300 text-[11px]">
+                            Starred
+                          </span>
+                        )}
+                        <span
+                          className={`vv-badge text-xs ${
+                            project.status === 'ready'
+                              ? 'bg-success/20 text-success'
+                              : project.status === 'generating'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : project.status === 'exported'
+                                  ? 'bg-accent/20 text-accent'
+                                  : 'text-vv-muted bg-white/10'
+                          }`}
+                        >
+                          {project.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <h3 className="group-hover:text-accent font-semibold transition-colors">
@@ -320,6 +336,16 @@ export default function DashboardPage() {
               );
             })}
           </div>
+        </div>
+      ) : projects.length > 0 ? (
+        <div className="vv-card py-16 text-center">
+          <h3 className="text-xl font-bold">Active workspace is empty</h3>
+          <p className="text-vv-secondary mt-2 text-sm">
+            Your projects are currently archived. Restore them from Project Workspace.
+          </p>
+          <Link href="/projects" className="vv-btn-secondary mt-6 inline-flex px-6 py-2.5">
+            Open Project Workspace
+          </Link>
         </div>
       ) : (
         <div className="vv-card relative overflow-hidden">

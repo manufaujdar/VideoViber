@@ -29,6 +29,8 @@ export interface Project {
   title: string;
   brief: string;
   provider: string;
+  starred: boolean;
+  archivedAt: string | null;
   status: 'draft' | 'generating' | 'ready' | 'exported';
   shots: Shot[];
   createdAt: string;
@@ -84,8 +86,12 @@ export interface UserSettings {
 interface AppState {
   // Projects
   projects: Project[];
-  addProject: (p: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'shots'> & { shots?: Shot[] }) => string;
+  addProject: (p: { title: string; brief: string; provider: string; shots?: Shot[] }) => string;
   updateProject: (id: string, updates: Partial<Project>) => void;
+  renameProject: (id: string, title: string) => void;
+  toggleProjectStar: (id: string) => void;
+  archiveProject: (id: string) => void;
+  restoreProject: (id: string) => void;
   deleteProject: (id: string) => void;
   getProject: (id: string) => Project | undefined;
 
@@ -124,6 +130,15 @@ interface AppState {
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const now = () => new Date().toISOString();
 
+function withProjectMetadata(project: Partial<Project>): Project {
+  return {
+    ...(project as Project),
+    starred: Boolean((project as Project).starred),
+    archivedAt:
+      typeof (project as Project).archivedAt === 'string' ? (project as Project).archivedAt : null,
+  } as Project;
+}
+
 /* ─── Store ──────────────────────────────────────── */
 
 export const useAppStore = create<AppState>()(
@@ -139,6 +154,8 @@ export const useAppStore = create<AppState>()(
           title: p.title,
           brief: p.brief,
           provider: p.provider,
+          starred: false,
+          archivedAt: null,
           status: 'draft',
           shots: p.shots ?? [],
           createdAt: now(),
@@ -152,6 +169,41 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           projects: s.projects.map((p) =>
             p.id === id ? { ...p, ...updates, updatedAt: now() } : p
+          ),
+        })),
+
+      renameProject: (id, title) => {
+        const normalized = title.trim();
+        if (!normalized) return;
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id ? { ...p, title: normalized, updatedAt: now() } : p
+          ),
+        }));
+      },
+
+      toggleProjectStar: (id) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id ? { ...p, starred: !p.starred, updatedAt: now() } : p
+          ),
+        })),
+
+      archiveProject: (id) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id && !p.archivedAt
+              ? { ...p, archivedAt: now(), updatedAt: now() }
+              : p
+          ),
+        })),
+
+      restoreProject: (id) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id && p.archivedAt
+              ? { ...p, archivedAt: null, updatedAt: now() }
+              : p
           ),
         })),
 
@@ -267,7 +319,20 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'videoviber-store',
-      version: 1,
+      version: 2,
+      migrate: (persistedState, version) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState as AppState;
+        }
+
+        const state = persistedState as { projects?: Partial<Project>[] };
+
+        if (Array.isArray(state.projects) && version < 2) {
+          state.projects = state.projects.map((project) => withProjectMetadata(project));
+        }
+
+        return state as AppState;
+      },
     }
   )
 );

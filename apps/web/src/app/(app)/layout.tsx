@@ -166,7 +166,9 @@ function NavLink({
 function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const displayName = useAppStore((state) => state.settings.displayName.trim());
-  const projectCount = useAppStore((state) => state.projects.length);
+  const projectCount = useAppStore(
+    (state) => state.projects.filter((project) => !project.archivedAt).length
+  );
 
   useEffect(() => {
     onClose();
@@ -237,7 +239,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
               <p className="truncate text-sm font-semibold">
                 {displayName || 'Workspace Owner'}
               </p>
-              <p className="text-vv-muted text-xs">{projectCount} project(s)</p>
+              <p className="text-vv-muted text-xs">{projectCount} active project(s)</p>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm build:web:vercel",
-  "devCommand": "pnpm --filter @videoviber/web dev"
+  "buildCommand": "pnpm --filter @videoviber/web build",
+  "devCommand": "pnpm --filter @videoviber/web dev",
+  "outputDirectory": "apps/web/.next"
 }

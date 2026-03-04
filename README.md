@@ -104,24 +104,23 @@ VideoViber/
 
 ## Deployment (Vercel)
 
-This repo includes two deployment configs:
+This repo includes deployment config at:
 
-- Preferred app config: [`apps/web/vercel.json`](apps/web/vercel.json)
-- Root fallback config: [`vercel.json`](vercel.json)
+- App config: [`apps/web/vercel.json`](apps/web/vercel.json)
+- Root config (for monorepo root builds): [`vercel.json`](vercel.json)
 
-- `framework: nextjs`
-- `installCommand: pnpm install --frozen-lockfile`
-- `buildCommand: pnpm build:web` (app-scoped)
-- `buildCommand: pnpm build:web:vercel` (root fallback with `.next` relocation)
-- `devCommand: pnpm --filter @videoviber/web dev`
+Vercel project settings:
 
-Vercel project settings must be:
-
-- Preferred Root Directory: `apps/web`
-- If Root Directory is repo root, root `vercel.json` runs `pnpm build:web:vercel` and relocates
-  `apps/web/.next` to root `.next` for Vercel packaging.
+- Root Directory: `apps/web` (recommended)
 - Install Command: `pnpm install --frozen-lockfile`
-- Build Command: `pnpm build:web` (app root) or `pnpm build:web:vercel` (repo root)
+- Build Command: `pnpm build`
+- Output Directory: `.next`
+
+If you deploy from monorepo root instead:
+
+- Install Command: `pnpm install --frozen-lockfile`
+- Build Command: `pnpm --filter @videoviber/web build`
+- Output Directory: `apps/web/.next`
 
 Required production env for Gemini + Veo generation:
 
