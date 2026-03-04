@@ -8,6 +8,17 @@
             "dependsOn": [
                 "^build"
             ],
+            "env": [
+                "GEMINI_API_KEY",
+                "GOOGLE_API_KEY",
+                "GOOGLE_GENAI_API_KEY",
+                "VEO_API_KEY",
+                "GEMINI_VEO_MODEL",
+                "VEO_MODEL",
+                "RUNWAY_API_KEY",
+                "LUMA_API_KEY",
+                "NEXT_PUBLIC_*"
+            ],
             "outputs": [
                 ".next/**",
                 "!.next/cache/**",

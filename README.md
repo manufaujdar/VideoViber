@@ -104,18 +104,22 @@ VideoViber/
 
 ## Deployment (Vercel)
 
-This repo uses an app-scoped Vercel config at [`apps/web/vercel.json`](apps/web/vercel.json):
+This repo includes two deployment configs:
+
+- Preferred app config: [`apps/web/vercel.json`](apps/web/vercel.json)
+- Root fallback config: [`vercel.json`](vercel.json)
 
 - `framework: nextjs`
 - `installCommand: pnpm install --frozen-lockfile`
-- `buildCommand: pnpm --filter @videoviber/web build`
+- `buildCommand: pnpm build:web`
 - `devCommand: pnpm --filter @videoviber/web dev`
 
 Vercel project settings must be:
 
-- Root Directory: `apps/web`
+- Preferred Root Directory: `apps/web`
+- If Root Directory is repo root, the root `vercel.json` still forces Next.js + web-only build.
 - Install Command: `pnpm install --frozen-lockfile`
-- Build Command: `pnpm --filter @videoviber/web build`
+- Build Command: `pnpm build:web`
 
 Required production env for Gemini + Veo generation:
 

@@ -5,7 +5,8 @@
   "description": "Agentic spec-driven video workspace — from vibe to first cut",
   "scripts": {
     "dev": "turbo dev",
-    "build": "turbo build",
+    "build": "pnpm build:web",
+    "build:all": "turbo build",
     "build:web": "pnpm --filter @videoviber/web build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
