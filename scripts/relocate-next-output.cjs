@@ -42,14 +42,6 @@ function remapAbsoluteTargetPath(oldAbsolutePath) {
   // Vercel serverless bundles are more reliable when traces reference root node_modules paths.
   const sourceNodeModulesPrefix = sourceAppNodeModulesDir + path.sep;
   if (oldAbsolutePath.startsWith(sourceNodeModulesPrefix)) {
-    if (fs.existsSync(oldAbsolutePath)) {
-      try {
-        return fs.realpathSync(oldAbsolutePath);
-      } catch {
-        // Fall back to deterministic remapping below.
-      }
-    }
-
     const repoNodeModulesPath = path.join(
       repoNodeModulesDir,
       oldAbsolutePath.slice(sourceNodeModulesPrefix.length)
