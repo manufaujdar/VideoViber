@@ -2,8 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 const repoRoot = process.cwd();
+const sourceAppDir = path.join(repoRoot, 'apps', 'web');
 const sourceNextDir = path.join(repoRoot, 'apps', 'web', '.next');
 const targetNextDir = path.join(repoRoot, '.next');
+const sourceAppNodeModulesDir = path.join(sourceAppDir, 'node_modules');
+const repoNodeModulesDir = path.join(repoRoot, 'node_modules');
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -33,6 +36,27 @@ function remapAbsoluteTargetPath(oldAbsolutePath) {
   const sourcePrefix = sourceNextDir + path.sep;
   if (oldAbsolutePath.startsWith(sourcePrefix)) {
     return path.join(targetNextDir, oldAbsolutePath.slice(sourcePrefix.length));
+  }
+
+  // Avoid preserving workspace-scoped node_modules symlink paths in traces.
+  // Vercel serverless bundles are more reliable when traces reference root node_modules paths.
+  const sourceNodeModulesPrefix = sourceAppNodeModulesDir + path.sep;
+  if (oldAbsolutePath.startsWith(sourceNodeModulesPrefix)) {
+    if (fs.existsSync(oldAbsolutePath)) {
+      try {
+        return fs.realpathSync(oldAbsolutePath);
+      } catch {
+        // Fall back to deterministic remapping below.
+      }
+    }
+
+    const repoNodeModulesPath = path.join(
+      repoNodeModulesDir,
+      oldAbsolutePath.slice(sourceNodeModulesPrefix.length)
+    );
+    if (fs.existsSync(repoNodeModulesPath)) {
+      return repoNodeModulesPath;
+    }
   }
 
   return oldAbsolutePath;
