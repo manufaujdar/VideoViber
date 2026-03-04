@@ -30,7 +30,7 @@ const devChecklist = [
   'Verify provider diagnostics in `/settings/keys`.',
   'Run `pnpm --filter @videoviber/web lint` before PRs.',
   'Run `pnpm --filter @videoviber/web typecheck` before PRs.',
-  'Run `pnpm build:web` to validate deploy parity.',
+  'Run `pnpm --filter @videoviber/web build` to validate deploy parity.',
 ];
 
 export default function SecurityPage() {

@@ -113,7 +113,7 @@ When creating or refactoring a page:
 7. Run:
    - `pnpm --filter @videoviber/web lint`
    - `pnpm --filter @videoviber/web typecheck`
-   - `pnpm build:web`
+   - `pnpm --filter @videoviber/web build`
 
 ## 8. Minimal Example
 
