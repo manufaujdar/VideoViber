@@ -111,15 +111,17 @@ This repo includes two deployment configs:
 
 - `framework: nextjs`
 - `installCommand: pnpm install --frozen-lockfile`
-- `buildCommand: pnpm build:web`
+- `buildCommand: pnpm build:web` (app-scoped)
+- `buildCommand: pnpm build:web:vercel` (root fallback with `.next` relocation)
 - `devCommand: pnpm --filter @videoviber/web dev`
 
 Vercel project settings must be:
 
 - Preferred Root Directory: `apps/web`
-- If Root Directory is repo root, the root `vercel.json` still forces Next.js + web-only build.
+- If Root Directory is repo root, root `vercel.json` runs `pnpm build:web:vercel` and relocates
+  `apps/web/.next` to root `.next` for Vercel packaging.
 - Install Command: `pnpm install --frozen-lockfile`
-- Build Command: `pnpm build:web`
+- Build Command: `pnpm build:web` (app root) or `pnpm build:web:vercel` (repo root)
 
 Required production env for Gemini + Veo generation:
 
