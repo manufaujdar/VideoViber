@@ -1,3 +1,4 @@
+import { LayoutGrid, RotateCcw } from 'lucide-react';
 import type {
   TimelineModuleFlags,
   TimelineModuleKey,
@@ -39,16 +40,20 @@ export function ThemeLayoutPanel({
         <span className="text-vv-muted text-xs">{activeTheme.summary}</span>
         <button
           onClick={onToggleModuleEditor}
-          className={`vv-btn-ghost ml-auto px-3 py-1.5 text-xs ${showModuleEditor ? 'text-accent' : ''}`}
+          className={`vv-btn-ghost ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs ${
+            showModuleEditor ? 'text-accent' : ''
+          }`}
           title="Toggle module visibility editor"
         >
+          <LayoutGrid className="h-3.5 w-3.5" />
           Modules
         </button>
         <button
           onClick={onResetThemeLayout}
-          className="vv-btn-ghost px-3 py-1.5 text-xs"
+          className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
           title="Reset module overrides for this theme"
         >
+          <RotateCcw className="h-3.5 w-3.5" />
           Reset Theme Layout
         </button>
       </div>

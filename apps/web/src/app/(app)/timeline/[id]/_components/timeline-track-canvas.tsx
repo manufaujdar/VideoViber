@@ -1,6 +1,13 @@
 'use client';
 
-import { useMemo, useState, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type RefObject } from 'react';
+import {
+  useMemo,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
+} from 'react';
+import { CircleDot, Lock, Trash2, Volume2, VolumeX } from 'lucide-react';
 import type {
   ClipColorClasses,
   MusicBed,
@@ -54,6 +61,10 @@ interface TimelineTrackCanvasProps {
   getWaveformBars: (segment: TimelineSegment, bars: number) => number[] | null;
   showMarkers: boolean;
   onRemoveMarker: (markerId: string) => void;
+  playbackRange: { start: number; end: number } | null;
+  onSetRangeIn: () => void;
+  onSetRangeOut: () => void;
+  onClearRange: () => void;
 }
 
 type DensityMode = 'compact' | 'balanced' | 'detailed';
@@ -78,6 +89,8 @@ const DENSITY_ROW_HEIGHT: Record<DensityMode, Record<TrackKind, number>> = {
     titles: 44,
   },
 };
+
+const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 
 export function TimelineTrackCanvas({
   timeline,
@@ -118,10 +131,16 @@ export function TimelineTrackCanvas({
   getWaveformBars,
   showMarkers,
   onRemoveMarker,
+  playbackRange,
+  onSetRangeIn,
+  onSetRangeOut,
+  onClearRange,
 }: TimelineTrackCanvasProps) {
   const [density, setDensity] = useState<DensityMode>('balanced');
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [markerQuery, setMarkerQuery] = useState('');
+  const [clipQuery, setClipQuery] = useState('');
+  const [showDisabledClips, setShowDisabledClips] = useState(true);
 
   const rowHeights = DENSITY_ROW_HEIGHT[density];
   const hasLayers =
@@ -132,6 +151,46 @@ export function TimelineTrackCanvas({
     if (!query) return timeline?.markers ?? [];
     return (timeline?.markers ?? []).filter((marker) => marker.label.toLowerCase().includes(query));
   }, [timeline?.markers, markerQuery]);
+
+  const normalizedClipQuery = clipQuery.trim().toLowerCase();
+
+  const filteredSegments = useMemo(() => {
+    return virtualizedSegments.filter((segment) => {
+      if (!showDisabledClips && !segment.clip.enabled) return false;
+      if (!normalizedClipQuery) return true;
+
+      const searchable = `${segment.clip.title} ${segment.clip.prompt} ${segment.clip.provider}`.toLowerCase();
+      return searchable.includes(normalizedClipQuery);
+    });
+  }, [virtualizedSegments, showDisabledClips, normalizedClipQuery]);
+
+  const filteredMusicBeds = useMemo(() => {
+    if (!normalizedClipQuery) return virtualizedMusicBeds;
+    return virtualizedMusicBeds.filter((item) => item.title.toLowerCase().includes(normalizedClipQuery));
+  }, [virtualizedMusicBeds, normalizedClipQuery]);
+
+  const filteredTitleOverlays = useMemo(() => {
+    if (!normalizedClipQuery) return virtualizedTitleOverlays;
+    return virtualizedTitleOverlays.filter((item) => item.text.toLowerCase().includes(normalizedClipQuery));
+  }, [virtualizedTitleOverlays, normalizedClipQuery]);
+  const hasVisibleResults =
+    filteredSegments.length > 0 || filteredMusicBeds.length > 0 || filteredTitleOverlays.length > 0;
+
+  const visibleClipCount = filteredSegments.length;
+  const disabledClipCount = timelineClips.filter((clip) => !clip.enabled).length;
+
+  const rangeOverlay = useMemo(() => {
+    if (!playbackRange || totalDuration <= 0) return null;
+    const start = (playbackRange.start / totalDuration) * 100;
+    const width = ((playbackRange.end - playbackRange.start) / totalDuration) * 100;
+    return {
+      leftPercent: clampPercent(start),
+      widthPercent: clampPercent(width),
+      leftPixels: playbackRange.start * timelinePixelsPerSecond,
+      widthPixels: Math.max(1, (playbackRange.end - playbackRange.start) * timelinePixelsPerSecond),
+      label: `${formatTime(playbackRange.start)} -> ${formatTime(playbackRange.end)}`,
+    };
+  }, [playbackRange, totalDuration, timelinePixelsPerSecond, formatTime]);
 
   const scrollPlayheadIntoView = () => {
     const viewport = timelineViewportRef.current;
@@ -145,7 +204,8 @@ export function TimelineTrackCanvas({
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <p className="text-vv-muted text-xs uppercase tracking-wider">Timeline Tracks</p>
         <p className="text-vv-muted font-mono ml-auto text-xs">
-          {timelineClips.length} clips · {formatTime(totalDuration)}
+          {visibleClipCount}/{timelineClips.length} clips · {formatTime(totalDuration)}
+          {disabledClipCount > 0 ? ` · ${disabledClipCount} disabled` : ''}
         </p>
       </div>
 
@@ -174,6 +234,35 @@ export function TimelineTrackCanvas({
         <button onClick={scrollPlayheadIntoView} className="vv-btn-ghost px-3 py-1.5 text-xs">
           Center Playhead
         </button>
+        <button
+          onClick={() => setShowDisabledClips((value) => !value)}
+          className={`vv-btn-ghost px-3 py-1.5 text-xs ${showDisabledClips ? 'text-accent' : ''}`}
+        >
+          {showDisabledClips ? 'Hide Disabled Clips' : 'Show Disabled Clips'}
+        </button>
+        <input
+          value={clipQuery}
+          onChange={(event) => setClipQuery(event.target.value)}
+          placeholder="Filter clips, titles, music"
+          className="vv-input ml-auto h-8 max-w-[260px] py-1 text-[11px]"
+        />
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button onClick={onSetRangeIn} className="vv-btn-ghost px-3 py-1.5 text-xs">
+          Set In
+        </button>
+        <button onClick={onSetRangeOut} className="vv-btn-ghost px-3 py-1.5 text-xs">
+          Set Out
+        </button>
+        <button onClick={onClearRange} className="vv-btn-ghost px-3 py-1.5 text-xs">
+          Clear Range
+        </button>
+        {rangeOverlay && (
+          <p className="text-vv-muted text-xs">
+            Playback Range: <span className="font-mono">{rangeOverlay.label}</span>
+          </p>
+        )}
       </div>
 
       {showMiniMap && hasLayers && (
@@ -185,19 +274,28 @@ export function TimelineTrackCanvas({
             seekToTime(Math.max(0, Math.min(totalDuration, ratio * totalDuration)));
           }}
         >
-          {virtualizedSegments.map((segment) => {
+          {filteredSegments.map((segment) => {
             const left = totalDuration > 0 ? (segment.start / totalDuration) * 100 : 0;
             const width = totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 0;
             const color = clipColorClasses[segment.clip.color];
             return (
               <div
                 key={`mini-${segment.clip.id}`}
-                className={`${color.accent} absolute bottom-1 top-1 rounded opacity-70`}
+                className={`${color.accent} absolute bottom-1 top-1 rounded ${
+                  segment.clip.enabled ? 'opacity-70' : 'opacity-35'
+                }`}
                 style={{ left: `${left}%`, width: `${Math.max(width, 0.25)}%` }}
                 title={`${segment.clip.title} · ${formatTime(segment.duration)}`}
               />
             );
           })}
+          {rangeOverlay && (
+            <div
+              className="pointer-events-none absolute inset-y-0 border-x border-cyan-300/80 bg-cyan-300/10"
+              style={{ left: `${rangeOverlay.leftPercent}%`, width: `${rangeOverlay.widthPercent}%` }}
+              title={rangeOverlay.label}
+            />
+          )}
           <div
             className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-200"
             style={{ left: `${totalDuration > 0 ? (playheadLeft / (trackWidth || 1)) * 100 : 0}%` }}
@@ -206,25 +304,26 @@ export function TimelineTrackCanvas({
       )}
 
       {hasLayers ? (
-        <div className="grid grid-cols-[170px_minmax(0,1fr)] gap-3">
-          <div className="space-y-2">
-            <div className="text-vv-muted h-7 px-2 text-[10px] font-semibold uppercase tracking-wider">
-              Track
-            </div>
-            {trackRows.map((row) => {
-              const track = trackStatus.byKind[row.kind];
-              const disabledBySolo = trackStatus.hasSolo && !track.solo;
-              return (
-                <div
-                  key={row.kind}
-                  className="rounded-md border border-white/10 bg-white/[0.02] px-2 py-2"
-                  style={{ height: `${rowHeights[row.kind]}px` }}
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold">{row.short}</span>
-                    <span className="text-vv-muted">{track.name}</span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-1 text-[10px]">
+        <div className="space-y-2">
+          <div className="grid grid-cols-[170px_minmax(0,1fr)] gap-3">
+            <div className="space-y-2">
+              <div className="text-vv-muted h-7 px-2 text-[10px] font-semibold uppercase tracking-wider">
+                Track
+              </div>
+              {trackRows.map((row) => {
+                const track = trackStatus.byKind[row.kind];
+                const disabledBySolo = trackStatus.hasSolo && !track.solo;
+                return (
+                  <div
+                    key={row.kind}
+                    className="rounded-md border border-white/10 bg-white/[0.02] px-2 py-2"
+                    style={{ height: `${rowHeights[row.kind]}px` }}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold">{row.short}</span>
+                      <span className="text-vv-muted">{track.name}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 text-[10px]">
                     <button
                       onClick={() =>
                         updateTrack(row.kind, (item) => ({
@@ -232,10 +331,12 @@ export function TimelineTrackCanvas({
                           locked: !item.locked,
                         }))
                       }
-                      className={`rounded px-1.5 py-0.5 ${
+                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
                         track.locked ? 'bg-amber-400/20 text-amber-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
+                      title={track.locked ? 'Unlock track' : 'Lock track'}
                     >
+                      <Lock className="h-3 w-3" />
                       L
                     </button>
                     <button
@@ -245,10 +346,12 @@ export function TimelineTrackCanvas({
                           muted: !item.muted,
                         }))
                       }
-                      className={`rounded px-1.5 py-0.5 ${
+                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
                         track.muted ? 'bg-rose-400/20 text-rose-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
+                      title={track.muted ? 'Unmute track' : 'Mute track'}
                     >
+                      {track.muted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
                       M
                     </button>
                     <button
@@ -258,25 +361,36 @@ export function TimelineTrackCanvas({
                           solo: !item.solo,
                         }))
                       }
-                      className={`rounded px-1.5 py-0.5 ${
+                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
                         track.solo ? 'bg-cyan-400/20 text-cyan-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
+                      title={track.solo ? 'Disable solo' : 'Enable solo'}
                     >
+                      <CircleDot className="h-3 w-3" />
                       S
                     </button>
-                    {disabledBySolo && <span className="text-vv-disabled ml-auto">Excluded</span>}
+                      {disabledBySolo && <span className="text-vv-disabled ml-auto">Excluded</span>}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <div ref={timelineViewportRef} className="overflow-x-auto">
-            <div style={{ width: `${trackWidth}px` }} className="relative min-w-full">
+            <div ref={timelineViewportRef} className="overflow-x-auto">
+              <div style={{ width: `${trackWidth}px` }} className="relative min-w-full">
               <div
                 className="border-vv-border/60 bg-vv-base/40 relative mb-2 h-7 cursor-pointer rounded-md border"
                 onClick={seekFromEvent}
               >
+                {rangeOverlay && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 border-x border-cyan-300/80 bg-cyan-300/10"
+                    style={{
+                      left: `${rangeOverlay.leftPercent}%`,
+                      width: `${rangeOverlay.widthPercent}%`,
+                    }}
+                  />
+                )}
                 {rulerTicks.map((tick) => {
                   const left = totalDuration > 0 ? (tick / totalDuration) * 100 : 0;
                   return (
@@ -323,11 +437,22 @@ export function TimelineTrackCanvas({
                   onDragLeave={onTrackDragLeave}
                 >
                   <div className="relative h-full">
-                    {virtualizedSegments.map((segment) => {
+                    {rangeOverlay && (
+                      <div
+                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
+                        style={{
+                          left: `${rangeOverlay.leftPixels}px`,
+                          width: `${rangeOverlay.widthPixels}px`,
+                        }}
+                      />
+                    )}
+
+                    {filteredSegments.map((segment) => {
                       const clip = segment.clip;
                       const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
                       const styles = clipColorClasses[clip.color];
                       const left = segment.start * timelinePixelsPerSecond;
+                      const clipEnabled = clip.enabled;
 
                       return (
                         <button
@@ -342,12 +467,20 @@ export function TimelineTrackCanvas({
                           }}
                           className={`group absolute top-0 flex h-full items-center justify-between rounded-md border px-2 text-left text-xs transition-all ${
                             clip.id === selectedClipId ? styles.active : styles.idle
-                          } ${videoTrackLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                          } ${videoTrackLocked ? 'cursor-not-allowed opacity-75' : ''} ${
+                            clipEnabled ? '' : 'opacity-45 grayscale'
+                          }`}
                           style={{ left: `${left}px`, width: `${width}px` }}
                           title={`${clip.title} · ${formatTime(segment.duration)}`}
                         >
                           <span className="truncate pr-2 font-semibold">{clip.title}</span>
                           <span className="text-[10px] font-mono opacity-85">{formatTime(segment.duration)}</span>
+
+                          {!clipEnabled && (
+                            <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/85">
+                              Disabled
+                            </span>
+                          )}
 
                           {clip.transitionType !== 'cut' && (
                             <span className="absolute -right-1 -top-2 rounded bg-black/70 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/90">
@@ -373,14 +506,24 @@ export function TimelineTrackCanvas({
                   onClick={seekFromEvent}
                 >
                   <div className="relative h-full">
-                    {virtualizedSegments.map((segment) => {
+                    {rangeOverlay && (
+                      <div
+                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
+                        style={{
+                          left: `${rangeOverlay.leftPixels}px`,
+                          width: `${rangeOverlay.widthPixels}px`,
+                        }}
+                      />
+                    )}
+
+                    {filteredSegments.map((segment) => {
                       const clip = segment.clip;
                       const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
                       const styles = clipColorClasses[clip.color];
                       const left = segment.start * timelinePixelsPerSecond;
 
                       const effectiveVolume =
-                        timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted
+                        timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted || !clip.enabled
                           ? 0
                           : (clip.audioVolume * (timeline?.masterVolume ?? 100)) / 100;
 
@@ -400,7 +543,7 @@ export function TimelineTrackCanvas({
                           }}
                           className={`absolute top-0 h-full rounded-md border px-2 text-[10px] transition-all ${
                             clip.id === selectedClipId ? styles.active : styles.idle
-                          }`}
+                          } ${clip.enabled ? '' : 'opacity-40 grayscale'}`}
                           style={{ left: `${left}px`, width: `${width}px` }}
                           title={`${clip.title} audio · ${Math.round(effectiveVolume)}%`}
                         >
@@ -428,7 +571,7 @@ export function TimelineTrackCanvas({
                             />
                           )}
                           <span className="relative z-10 font-mono">
-                            {timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted
+                            {timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted || !clip.enabled
                               ? 'Muted'
                               : `${Math.round(effectiveVolume)}%`}
                           </span>
@@ -444,7 +587,17 @@ export function TimelineTrackCanvas({
                   onClick={seekFromEvent}
                 >
                   <div className="relative h-full">
-                    {virtualizedMusicBeds.map((item) => {
+                    {rangeOverlay && (
+                      <div
+                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
+                        style={{
+                          left: `${rangeOverlay.leftPixels}px`,
+                          width: `${rangeOverlay.widthPixels}px`,
+                        }}
+                      />
+                    )}
+
+                    {filteredMusicBeds.map((item) => {
                       const width = Math.max(item.duration * timelinePixelsPerSecond, 50);
                       const left = item.start * timelinePixelsPerSecond;
                       const styles = clipColorClasses[item.color];
@@ -478,7 +631,17 @@ export function TimelineTrackCanvas({
                   onClick={seekFromEvent}
                 >
                   <div className="relative h-full">
-                    {virtualizedTitleOverlays.map((item) => {
+                    {rangeOverlay && (
+                      <div
+                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
+                        style={{
+                          left: `${rangeOverlay.leftPixels}px`,
+                          width: `${rangeOverlay.widthPixels}px`,
+                        }}
+                      />
+                    )}
+
+                    {filteredTitleOverlays.map((item) => {
                       const width = Math.max(item.duration * timelinePixelsPerSecond, 52);
                       const left = item.start * timelinePixelsPerSecond;
                       const isSelected = item.id === selectedTitleId;
@@ -505,8 +668,15 @@ export function TimelineTrackCanvas({
                   </div>
                 </div>
               </div>
+              </div>
             </div>
           </div>
+
+          {normalizedClipQuery && !hasVisibleResults && (
+            <div className="rounded-md border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-vv-muted">
+              No clips, music beds, or titles match this filter.
+            </div>
+          )}
         </div>
       ) : (
         <div className="border-vv-border bg-vv-base/30 flex h-24 items-center justify-center rounded-lg border-2 border-dashed">
@@ -545,10 +715,10 @@ export function TimelineTrackCanvas({
                 </button>
                 <button
                   onClick={() => onRemoveMarker(marker.id)}
-                  className="text-vv-muted hover:text-vv-primary px-1"
+                  className="text-vv-muted hover:text-vv-primary inline-flex items-center px-1"
                   title="Delete marker"
                 >
-                  x
+                  <Trash2 className="h-3 w-3" />
                 </button>
               </div>
             ))}

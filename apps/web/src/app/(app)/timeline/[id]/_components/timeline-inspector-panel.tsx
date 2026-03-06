@@ -1,6 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CircleDot,
+  Copy,
+  Lock,
+  Repeat,
+  Trash2,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import type {
   ClipColor,
   ClipColorClasses,
@@ -50,6 +61,9 @@ interface TimelineInspectorPanelProps {
   removeSelectedTitle: () => void;
   updateTrack: (kind: TrackKind, updater: (track: TimelineTrack) => TimelineTrack) => void;
   commitTimeline: (updater: (state: TimelineState) => TimelineState) => void;
+  playbackRange: { start: number; end: number } | null;
+  onSetRangeFromSelectedClip: () => void;
+  onClearPlaybackRange: () => void;
 }
 
 export function TimelineInspectorPanel({
@@ -85,6 +99,9 @@ export function TimelineInspectorPanel({
   removeSelectedTitle,
   updateTrack,
   commitTimeline,
+  playbackRange,
+  onSetRangeFromSelectedClip,
+  onClearPlaybackRange,
 }: TimelineInspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<'selection' | 'mix' | 'audio'>('selection');
 
@@ -186,6 +203,29 @@ export function TimelineInspectorPanel({
                   </div>
                 </div>
               )}
+
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs">
+                <p className="text-vv-muted">
+                  Range:{' '}
+                  {playbackRange
+                    ? `${formatTime(playbackRange.start)} -> ${formatTime(playbackRange.end)}`
+                    : 'Not set'}
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={onSetRangeFromSelectedClip}
+                    className="rounded border border-white/20 px-2 py-1 text-[11px]"
+                  >
+                    Range = Clip
+                  </button>
+                  <button
+                    onClick={onClearPlaybackRange}
+                    className="rounded border border-white/20 px-2 py-1 text-[11px]"
+                  >
+                    Clear Range
+                  </button>
+                </div>
+              </div>
 
               <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
                 <p className="text-vv-secondary text-xs font-semibold uppercase tracking-wider">Timing</p>
@@ -427,11 +467,26 @@ export function TimelineInspectorPanel({
                       muted: !clip.muted,
                     }))
                   }
-                  className={`vv-btn-ghost w-full justify-center py-2 text-xs ${
+                  className={`vv-btn-ghost inline-flex w-full items-center justify-center gap-1.5 py-2 text-xs ${
                     selectedClip.muted ? 'text-accent' : ''
                   }`}
                 >
+                  {selectedClip.muted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
                   {selectedClip.muted ? 'Unmute Clip' : 'Mute Clip'}
+                </button>
+
+                <button
+                  onClick={() =>
+                    updateSelectedClip((clip) => ({
+                      ...clip,
+                      enabled: !clip.enabled,
+                    }))
+                  }
+                  className={`vv-btn-ghost w-full justify-center py-2 text-xs ${
+                    selectedClip.enabled ? 'text-accent' : ''
+                  }`}
+                >
+                  {selectedClip.enabled ? 'Clip Enabled' : 'Clip Disabled'}
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -461,23 +516,30 @@ export function TimelineInspectorPanel({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => moveSelectedClip(-1)}
-                  className="vv-btn-secondary px-3 py-2 text-xs"
+                  className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 >
+                  <ArrowLeft className="h-3.5 w-3.5" />
                   Move Left
                 </button>
                 <button
                   onClick={() => moveSelectedClip(1)}
-                  className="vv-btn-secondary px-3 py-2 text-xs"
+                  className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 >
+                  <ArrowRight className="h-3.5 w-3.5" />
                   Move Right
                 </button>
-                <button onClick={duplicateSelectedClip} className="vv-btn-secondary px-3 py-2 text-xs">
+                <button
+                  onClick={duplicateSelectedClip}
+                  className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                >
+                  <Copy className="h-3.5 w-3.5" />
                   Duplicate
                 </button>
                 <button
                   onClick={deleteSelectedClip}
-                  className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
                 >
+                  <Trash2 className="h-3.5 w-3.5" />
                   Delete Clip
                 </button>
               </div>
@@ -578,8 +640,15 @@ export function TimelineInspectorPanel({
                         muted: !item.muted,
                       }))
                     }
-                    className={`vv-btn-ghost py-2 text-xs ${selectedMusicBed.muted ? 'text-accent' : ''}`}
+                    className={`vv-btn-ghost inline-flex items-center justify-center gap-1.5 py-2 text-xs ${
+                      selectedMusicBed.muted ? 'text-accent' : ''
+                    }`}
                   >
+                    {selectedMusicBed.muted ? (
+                      <Volume2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <VolumeX className="h-3.5 w-3.5" />
+                    )}
                     {selectedMusicBed.muted ? 'Unmute' : 'Mute'}
                   </button>
                   <button
@@ -589,16 +658,20 @@ export function TimelineInspectorPanel({
                         loop: !item.loop,
                       }))
                     }
-                    className={`vv-btn-ghost py-2 text-xs ${selectedMusicBed.loop ? 'text-accent' : ''}`}
+                    className={`vv-btn-ghost inline-flex items-center justify-center gap-1.5 py-2 text-xs ${
+                      selectedMusicBed.loop ? 'text-accent' : ''
+                    }`}
                   >
+                    <Repeat className="h-3.5 w-3.5" />
                     {selectedMusicBed.loop ? 'Loop On' : 'Loop Off'}
                   </button>
                 </div>
 
                 <button
                   onClick={removeSelectedMusicBed}
-                  className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
                 >
+                  <Trash2 className="h-3.5 w-3.5" />
                   Delete Music Bed
                 </button>
               </div>
@@ -715,8 +788,9 @@ export function TimelineInspectorPanel({
                   </button>
                   <button
                     onClick={removeSelectedTitle}
-                    className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
                   >
+                    <Trash2 className="h-3.5 w-3.5" />
                     Delete Title
                   </button>
                 </div>
@@ -744,8 +818,9 @@ export function TimelineInspectorPanel({
                     }))
                   )
                 }
-                className="rounded border border-white/20 px-2 py-1 text-[11px]"
+                className="inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[11px]"
               >
+                <CircleDot className="h-3 w-3" />
                 Clear Solo
               </button>
               <button
@@ -757,8 +832,9 @@ export function TimelineInspectorPanel({
                     }))
                   )
                 }
-                className="rounded border border-white/20 px-2 py-1 text-[11px]"
+                className="inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[11px]"
               >
+                <Lock className="h-3 w-3" />
                 Unlock All
               </button>
             </div>
@@ -797,12 +873,13 @@ export function TimelineInspectorPanel({
                         locked: !item.locked,
                       }))
                     }
-                    className={`rounded-md border px-2 py-1 ${
+                    className={`inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 ${
                       track.locked
                         ? 'border-amber-300/60 text-amber-200'
                         : 'border-white/15 text-vv-muted hover:text-vv-primary'
                     }`}
                   >
+                    <Lock className="h-3.5 w-3.5" />
                     {track.locked ? 'Locked' : 'Lock'}
                   </button>
                   <button
@@ -812,12 +889,13 @@ export function TimelineInspectorPanel({
                         muted: !item.muted,
                       }))
                     }
-                    className={`rounded-md border px-2 py-1 ${
+                    className={`inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 ${
                       track.muted
                         ? 'border-rose-300/60 text-rose-200'
                         : 'border-white/15 text-vv-muted hover:text-vv-primary'
                     }`}
                   >
+                    {track.muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
                     {track.muted ? 'Muted' : 'Mute'}
                   </button>
                   <button
@@ -827,12 +905,13 @@ export function TimelineInspectorPanel({
                         solo: !item.solo,
                       }))
                     }
-                    className={`rounded-md border px-2 py-1 ${
+                    className={`inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 ${
                       track.solo
                         ? 'border-cyan-300/60 text-cyan-200'
                         : 'border-white/15 text-vv-muted hover:text-vv-primary'
                     }`}
                   >
+                    <CircleDot className="h-3.5 w-3.5" />
                     {track.solo ? 'Solo' : 'S'}
                   </button>
                 </div>
@@ -890,10 +969,11 @@ export function TimelineInspectorPanel({
                 masterMuted: !state.masterMuted,
               }))
             }
-            className={`vv-btn-ghost w-full justify-center py-2 text-xs ${
+            className={`vv-btn-ghost inline-flex w-full items-center justify-center gap-1.5 py-2 text-xs ${
               timeline?.masterMuted ? 'text-accent' : ''
             }`}
           >
+            {timeline?.masterMuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
             {timeline?.masterMuted ? 'Unmute Timeline' : 'Mute Timeline'}
           </button>
 

@@ -3,7 +3,9 @@ export type TimelineThemeId =
   | 'advanced-studio'
   | 'storyboard-director'
   | 'audio-mix'
-  | 'review-focus';
+  | 'review-focus'
+  | 'assistant-cut'
+  | 'finishing-suite';
 
 export type TimelineModuleKey =
   | 'preview'

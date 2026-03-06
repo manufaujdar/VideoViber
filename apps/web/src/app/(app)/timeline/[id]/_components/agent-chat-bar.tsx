@@ -1,3 +1,4 @@
+import { Play } from 'lucide-react';
 import type { AgentQuickCommand } from './timeline-editor-types';
 
 interface AgentChatBarProps {
@@ -35,10 +36,11 @@ export function AgentChatBar({
               onSubmit();
             }
           }}
-          placeholder='Try: "split selected clip", "add marker hook", "theme advanced", "seek 0:45"'
+          placeholder='Try: "set in", "set out", "disable selected clip", "theme finishing", "seek 0:45"'
           className="vv-input h-10 min-w-[280px] flex-1 py-2 text-sm"
         />
-        <button onClick={onSubmit} className="vv-btn-primary px-4 py-2">
+        <button onClick={onSubmit} className="vv-btn-primary inline-flex items-center gap-1.5 px-4 py-2">
+          <Play className="h-3.5 w-3.5" />
           Run
         </button>
       </div>

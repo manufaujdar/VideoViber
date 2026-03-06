@@ -19,6 +19,7 @@ export interface TimelineClip {
   transitionDuration: number;
   audioVolume: number;
   muted: boolean;
+  enabled: boolean;
   color: ClipColor;
   thumbnailUrl: string | null;
   videoUrl: string | null;

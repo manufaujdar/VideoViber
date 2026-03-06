@@ -10,6 +10,30 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ClipboardPaste,
+  ClipboardX,
+  Clapperboard,
+  Copy,
+  Download,
+  Flag,
+  Magnet,
+  Music2,
+  Pause,
+  Play,
+  Redo2,
+  RefreshCw,
+  Repeat,
+  ScanLine,
+  Scissors,
+  Trash2,
+  Type,
+  Undo2,
+  Upload,
+} from 'lucide-react';
 import { useAppStore, type Shot } from '@/app/store';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
@@ -51,6 +75,7 @@ import {
 
 const MIN_CLIP_SPAN_SECONDS = 0.3;
 const MIN_ITEM_DURATION_SECONDS = 0.5;
+const MIN_PLAYBACK_RANGE_SECONDS = 0.1;
 const HISTORY_LIMIT = 120;
 const PLAYBACK_TICK_SECONDS = 1 / 30;
 const PLAYBACK_TICK_MS = 33;
@@ -321,6 +346,8 @@ const parseThemeFromCommand = (command: string): TimelineThemeId | null => {
   if (normalized.includes('story') || normalized.includes('director')) return 'storyboard-director';
   if (normalized.includes('audio') || normalized.includes('mix')) return 'audio-mix';
   if (normalized.includes('review')) return 'review-focus';
+  if (normalized.includes('assistant') || normalized.includes('agent')) return 'assistant-cut';
+  if (normalized.includes('finish') || normalized.includes('final')) return 'finishing-suite';
   return null;
 };
 
@@ -368,6 +395,7 @@ const shotToTimelineClip = (shot: Shot, index: number): TimelineClip => {
     transitionDuration: 0,
     audioVolume: 100,
     muted: false,
+    enabled: true,
     color: CLIP_COLOR_ORDER[index % CLIP_COLOR_ORDER.length] ?? 'cyan',
     thumbnailUrl: shot.thumbnailUrl,
     videoUrl: shot.videoUrl,
@@ -497,6 +525,57 @@ function clampTrimEnd(clip: TimelineClip, nextEnd: number) {
   return clamp(nextEnd, minEnd, clip.sourceDuration);
 }
 
+type ClipClipboard = {
+  clip: TimelineClip;
+  mode: 'copy' | 'cut';
+};
+
+function normalizeTimelineState(state: TimelineState): TimelineState {
+  const clipColors = new Set<ClipColor>(CLIP_COLOR_ORDER);
+  const tracksByKind = new Map(state.tracks.map((track) => [track.kind, track] as const));
+  const normalizedTracks = createDefaultTracks().map((baseTrack) => {
+    const existing = tracksByKind.get(baseTrack.kind);
+    return existing ? { ...baseTrack, ...existing } : baseTrack;
+  });
+
+  return {
+    ...state,
+    clips: state.clips.map((clip, index) => {
+      const maybeEnabled = (clip as TimelineClip & { enabled?: boolean }).enabled;
+      const color = clipColors.has(clip.color)
+        ? clip.color
+        : CLIP_COLOR_ORDER[index % CLIP_COLOR_ORDER.length] ?? 'cyan';
+      return {
+        ...clip,
+        enabled: typeof maybeEnabled === 'boolean' ? maybeEnabled : true,
+        color,
+      };
+    }),
+    tracks: normalizedTracks,
+    titleOverlays: state.titleOverlays.map((title) => {
+      const maybeEnabled = (title as TitleOverlay & { enabled?: boolean }).enabled;
+      return {
+        ...title,
+        enabled: typeof maybeEnabled === 'boolean' ? maybeEnabled : true,
+      };
+    }),
+  };
+}
+
+function createPastedClip(source: TimelineClip, mode: ClipClipboard['mode']): TimelineClip {
+  const title =
+    mode === 'copy'
+      ? source.title.toLowerCase().includes('(copy)')
+        ? source.title
+        : `${source.title} (Copy)`
+      : source.title;
+  return {
+    ...source,
+    id: uid('clip'),
+    title,
+  };
+}
+
 export default function TimelineEditorPage({ params }: { params: { id: string } }) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === params.id));
   const updateProject = useAppStore((s) => s.updateProject);
@@ -513,10 +592,13 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
   const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loopPlayback, setLoopPlayback] = useState(false);
   const [zoom, setZoom] = useState(DEFAULT_TIMELINE_ZOOM);
   const [markerLabel, setMarkerLabel] = useState('');
+  const [clipClipboard, setClipClipboard] = useState<ClipClipboard | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [importingMedia, setImportingMedia] = useState(false);
   const [, setWaveformVersion] = useState(0);
@@ -530,7 +612,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
       id: uid('agent'),
       role: 'assistant',
       content:
-        'Timeline agent ready. Try: "split selected clip", "add marker intro", "theme minimal", or "help".',
+        'Timeline agent ready. Try: "split selected clip", "set in", "set out", "disable selected clip", or "help".',
       createdAt: Date.now(),
     },
   ]);
@@ -574,6 +656,18 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [timeline?.titleOverlays]);
 
   const totalDuration = Math.max(clipTimelineDuration, maxMusicEnd, maxTitleEnd);
+  const playbackRange = useMemo(() => {
+    if (rangeStart === null || rangeEnd === null) return null;
+    const safeStart = clamp(Math.min(rangeStart, rangeEnd), 0, totalDuration);
+    const safeEnd = clamp(Math.max(rangeStart, rangeEnd), 0, totalDuration);
+    if (safeEnd - safeStart < MIN_PLAYBACK_RANGE_SECONDS) return null;
+    return {
+      start: toFixedNumber(safeStart, 3),
+      end: toFixedNumber(safeEnd, 3),
+    };
+  }, [rangeStart, rangeEnd, totalDuration]);
+  const playbackStart = playbackRange?.start ?? 0;
+  const playbackEnd = playbackRange?.end ?? totalDuration;
 
   const activeTheme = TIMELINE_THEME_BY_ID[activeThemeId] ?? TIMELINE_THEME_BY_ID['advanced-studio'];
   const visibleModules = useMemo(
@@ -599,6 +693,10 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const selectedTitle = useMemo(
     () => timeline?.titleOverlays.find((item) => item.id === selectedTitleId) ?? null,
     [timeline?.titleOverlays, selectedTitleId]
+  );
+  const disabledClipCount = useMemo(
+    () => timelineClips.filter((clip) => !clip.enabled).length,
+    [timelineClips]
   );
 
   const activeSegment = useMemo(() => {
@@ -666,7 +764,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [timeline, trackStatus.titlesVisible, currentTime]);
 
   const previewClip = previewSegment?.clip ?? null;
-  const canUsePreviewVideo = Boolean(previewClip?.videoUrl && trackStatus.videoVisible);
+  const canUsePreviewVideo = Boolean(
+    previewClip?.videoUrl && trackStatus.videoVisible && previewClip.enabled
+  );
 
   const snapTargets = useMemo(() => {
     const boundaryTimes = segments.flatMap((segment) => [segment.start, segment.end]);
@@ -756,11 +856,14 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, []);
 
   const loadTimelineState = useCallback((state: TimelineState) => {
-    setHistory({ entries: [state], index: 0 });
-    setSelectedClipId(state.clips[0]?.id ?? null);
+    const normalized = normalizeTimelineState(state);
+    setHistory({ entries: [normalized], index: 0 });
+    setSelectedClipId(normalized.clips[0]?.id ?? null);
     setSelectedMusicId(null);
     setSelectedTitleId(null);
     setCurrentTime(0);
+    setRangeStart(null);
+    setRangeEnd(null);
     setIsPlaying(false);
     setDragState(null);
   }, []);
@@ -941,6 +1044,47 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     [timeline?.snapEnabled, snapTargets, totalDuration]
   );
 
+  const setInPoint = useCallback(() => {
+    if (totalDuration <= 0) return;
+    const nextIn = clamp(currentTime, 0, totalDuration);
+    setRangeStart(nextIn);
+    setRangeEnd((previous) => {
+      if (previous === null) {
+        return clamp(nextIn + Math.max(1, MIN_PLAYBACK_RANGE_SECONDS), 0, totalDuration);
+      }
+      if (previous - nextIn < MIN_PLAYBACK_RANGE_SECONDS) {
+        return clamp(nextIn + MIN_PLAYBACK_RANGE_SECONDS, 0, totalDuration);
+      }
+      return previous;
+    });
+  }, [currentTime, totalDuration]);
+
+  const setOutPoint = useCallback(() => {
+    if (totalDuration <= 0) return;
+    const nextOut = clamp(currentTime, 0, totalDuration);
+    setRangeEnd(nextOut);
+    setRangeStart((previous) => {
+      if (previous === null) {
+        return clamp(nextOut - Math.max(1, MIN_PLAYBACK_RANGE_SECONDS), 0, totalDuration);
+      }
+      if (nextOut - previous < MIN_PLAYBACK_RANGE_SECONDS) {
+        return clamp(nextOut - MIN_PLAYBACK_RANGE_SECONDS, 0, totalDuration);
+      }
+      return previous;
+    });
+  }, [currentTime, totalDuration]);
+
+  const clearPlaybackRange = useCallback(() => {
+    setRangeStart(null);
+    setRangeEnd(null);
+  }, []);
+
+  const setPlaybackRangeToSelectedClip = useCallback(() => {
+    if (!selectedSegment) return;
+    setRangeStart(toFixedNumber(selectedSegment.start, 3));
+    setRangeEnd(toFixedNumber(selectedSegment.end, 3));
+  }, [selectedSegment]);
+
   const seekFromEvent = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -1101,6 +1245,80 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     });
     toast.success('Clip duplicated.');
   }, [selectedClipId, trackStatus.byKind.video.locked, commitTimeline]);
+
+  const copySelectedClipToClipboard = useCallback(() => {
+    if (!selectedClip) {
+      toast.error('Select a clip first to copy.');
+      return false;
+    }
+
+    setClipClipboard({ clip: selectedClip, mode: 'copy' });
+    toast.success(`Copied "${selectedClip.title}".`);
+    return true;
+  }, [selectedClip]);
+
+  const cutSelectedClipToClipboard = useCallback(() => {
+    if (!selectedClipId || !selectedClip) {
+      toast.error('Select a clip first to cut.');
+      return false;
+    }
+    if (trackStatus.byKind.video.locked) {
+      toast.error('Video track is locked.');
+      return false;
+    }
+
+    setClipClipboard({ clip: selectedClip, mode: 'cut' });
+    let nextSelectedClipId: string | null = null;
+
+    commitTimeline((state) => {
+      const index = state.clips.findIndex((clip) => clip.id === selectedClipId);
+      if (index < 0) return state;
+      const clips = [...state.clips];
+      clips.splice(index, 1);
+      nextSelectedClipId = clips[index]?.id ?? clips[index - 1]?.id ?? null;
+      return { ...state, clips };
+    });
+
+    setSelectedClipId(nextSelectedClipId);
+    toast.success(`Cut "${selectedClip.title}". Use paste to insert.`);
+    return true;
+  }, [selectedClipId, selectedClip, trackStatus.byKind.video.locked, commitTimeline]);
+
+  const pasteClipFromClipboard = useCallback(() => {
+    if (!clipClipboard) {
+      toast.error('Clipboard is empty.');
+      return false;
+    }
+    if (trackStatus.byKind.video.locked) {
+      toast.error('Video track is locked.');
+      return false;
+    }
+
+    let insertedClipId: string | null = null;
+    commitTimeline((state) => {
+      const clips = [...state.clips];
+      const selectedIndex = selectedClipId
+        ? clips.findIndex((clip) => clip.id === selectedClipId)
+        : -1;
+      const insertAt = selectedIndex >= 0 ? selectedIndex + 1 : clips.length;
+      const pasted = createPastedClip(clipClipboard.clip, clipClipboard.mode);
+      insertedClipId = pasted.id;
+      clips.splice(insertAt, 0, pasted);
+      return { ...state, clips };
+    });
+
+    if (insertedClipId) {
+      setSelectedClipId(insertedClipId);
+      setSelectedMusicId(null);
+      setSelectedTitleId(null);
+    }
+    if (clipClipboard.mode === 'cut') {
+      setClipClipboard(null);
+    }
+
+    toast.success(`Pasted "${clipClipboard.clip.title}".`);
+    return true;
+  }, [clipClipboard, trackStatus.byKind.video.locked, selectedClipId, commitTimeline]);
 
   const deleteSelectedClip = useCallback(() => {
     if (!selectedClipId) return;
@@ -1313,6 +1531,29 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     toast.success('Title overlay removed.');
   }, [selectedTitleId, trackStatus.byKind.titles.locked, commitTimeline]);
 
+  const deleteCurrentSelection = useCallback(() => {
+    if (selectedClipId) {
+      deleteSelectedClip();
+      return true;
+    }
+    if (selectedMusicId) {
+      removeSelectedMusicBed();
+      return true;
+    }
+    if (selectedTitleId) {
+      removeSelectedTitle();
+      return true;
+    }
+    return false;
+  }, [
+    selectedClipId,
+    selectedMusicId,
+    selectedTitleId,
+    deleteSelectedClip,
+    removeSelectedMusicBed,
+    removeSelectedTitle,
+  ]);
+
   const fitTimelineToViewport = useCallback(() => {
     const viewport = timelineViewportRef.current;
     if (!viewport || totalDuration <= 0) {
@@ -1324,6 +1565,24 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     const nextZoom = clamp(available / (totalDuration * basePixelsPerSecond), 0.25, 8);
     setZoom(toFixedNumber(nextZoom, 2));
   }, [totalDuration, basePixelsPerSecond]);
+
+  const toggleLoopPlayback = useCallback(() => {
+    setLoopPlayback((enabled) => !enabled);
+  }, []);
+
+  const togglePlayback = useCallback(() => {
+    setIsPlaying((playing) => {
+      if (!playing && playbackRange) {
+        setCurrentTime((previous) => {
+          if (previous < playbackRange.start || previous >= playbackRange.end) {
+            return playbackRange.start;
+          }
+          return previous;
+        });
+      }
+      return !playing;
+    });
+  }, [playbackRange]);
 
   const appendAgentMessage = useCallback((role: AgentMessage['role'], content: string) => {
     setAgentMessages((previous) => {
@@ -1416,7 +1675,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         lower.includes('commands')
       ) {
         respond(
-          'Commands: theme minimal|advanced|storyboard|audio|review, split selected clip, duplicate clip, delete clip, add marker intro, add title Intro Card, add music bed, mute timeline, unmute timeline, snap on|off, zoom 1.6, speed 1.25, seek 1:20, fit timeline, undo, redo.'
+          'Commands: theme minimal|advanced|storyboard|audio|review|assistant|finishing, split selected clip, copy selected clip, cut selected clip, paste clip, duplicate clip, delete clip, disable selected clip, enable selected clip, add marker intro, add title Intro Card, add music bed, set in, set out, clear range, loop on|off|toggle, mute timeline, unmute timeline, snap on|off, zoom 1.6, speed 1.25, seek 1:20, find clip intro, fit timeline, undo, redo.'
         );
         return;
       }
@@ -1425,7 +1684,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         const themeId = parseThemeFromCommand(lower);
         if (!themeId) {
           respond(
-            'Theme not recognized. Use one of: minimal, advanced, storyboard, audio, review.'
+            'Theme not recognized. Use one of: minimal, advanced, storyboard, audio, review, assistant, finishing.'
           );
           return;
         }
@@ -1453,15 +1712,78 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         return;
       }
 
+      if (lower.includes('copy') && lower.includes('clip')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to copy it.');
+          return;
+        }
+        perform('Copied selected clip to clipboard.', () => {
+          copySelectedClipToClipboard();
+        });
+        return;
+      }
+
+      if (lower.includes('cut') && lower.includes('clip')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to cut it.');
+          return;
+        }
+        perform('Cut selected clip to clipboard.', () => {
+          cutSelectedClipToClipboard();
+        }, { destructive: true });
+        return;
+      }
+
+      if (lower.includes('paste') && lower.includes('clip')) {
+        if (!clipClipboard) {
+          respond('Clipboard is empty. Copy or cut a clip first.');
+          return;
+        }
+        perform('Pasted clip from clipboard.', () => {
+          pasteClipFromClipboard();
+        });
+        return;
+      }
+
       if (
         (lower.includes('delete') || lower.includes('remove')) &&
         (lower.includes('clip') || lower.includes('selected'))
       ) {
-        if (!selectedClip) {
-          respond('No clip is selected to delete.');
+        if (!selectedClip && !selectedMusicBed && !selectedTitle) {
+          respond('No timeline item is selected to delete.');
           return;
         }
-        perform('Removed selected clip.', () => deleteSelectedClip(), { destructive: true });
+        perform('Removed selected timeline item.', () => deleteCurrentSelection(), {
+          destructive: true,
+        });
+        return;
+      }
+
+      if (lower.includes('disable') && lower.includes('clip')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to disable it.');
+          return;
+        }
+        perform(`Disabled "${selectedClip.title}".`, () => {
+          updateSelectedClip((clip) => ({
+            ...clip,
+            enabled: false,
+          }));
+        });
+        return;
+      }
+
+      if (lower.includes('enable') && lower.includes('clip')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to enable it.');
+          return;
+        }
+        perform(`Enabled "${selectedClip.title}".`, () => {
+          updateSelectedClip((clip) => ({
+            ...clip,
+            enabled: true,
+          }));
+        });
         return;
       }
 
@@ -1535,6 +1857,46 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
       if (lower.includes('add music')) {
         perform('Added a music bed at the playhead.', () => addMusicBedAtPlayhead());
+        return;
+      }
+
+      if (
+        lower === 'set in' ||
+        lower.includes('set in point') ||
+        lower.includes('mark in') ||
+        lower.includes('in point')
+      ) {
+        perform(`In point set at ${formatTime(currentTime)}.`, () => setInPoint());
+        return;
+      }
+
+      if (
+        lower === 'set out' ||
+        lower.includes('set out point') ||
+        lower.includes('mark out') ||
+        lower.includes('out point')
+      ) {
+        perform(`Out point set at ${formatTime(currentTime)}.`, () => setOutPoint());
+        return;
+      }
+
+      if (lower.includes('clear range') || lower.includes('clear in') || lower.includes('reset range')) {
+        perform('Playback range cleared.', () => clearPlaybackRange());
+        return;
+      }
+
+      if (lower.includes('loop on') || lower.includes('enable loop')) {
+        perform('Loop playback enabled.', () => setLoopPlayback(true));
+        return;
+      }
+
+      if (lower.includes('loop off') || lower.includes('disable loop')) {
+        perform('Loop playback disabled.', () => setLoopPlayback(false));
+        return;
+      }
+
+      if (lower.includes('toggle loop')) {
+        perform('Loop playback toggled.', () => toggleLoopPlayback());
         return;
       }
 
@@ -1665,6 +2027,35 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         return;
       }
 
+      if (lower.startsWith('find clip') || lower.startsWith('select clip')) {
+        const query = commandText.replace(/^(find|select)\s+clip\s*/i, '').trim().toLowerCase();
+        if (!query) {
+          respond('Provide a clip name, for example: "find clip intro".');
+          return;
+        }
+
+        const match = timelineClips.find((clip) => {
+          const text = `${clip.title} ${clip.prompt}`.toLowerCase();
+          return text.includes(query);
+        });
+
+        if (!match) {
+          respond(`No clip matched "${query}".`);
+          return;
+        }
+
+        const segment = segments.find((entry) => entry.clip.id === match.id);
+        perform(`Selected clip "${match.title}".`, () => {
+          setSelectedClipId(match.id);
+          setSelectedMusicId(null);
+          setSelectedTitleId(null);
+          if (segment) {
+            seekTo(segment.start, { disableSnap: true });
+          }
+        });
+        return;
+      }
+
       if (lower.includes('refresh clips')) {
         perform('Timeline refreshed from completed clips.', () => refreshFromProjectShots());
         return;
@@ -1680,20 +2071,32 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
       agentSafeMode,
       appendAgentMessage,
       applyThemePreset,
+      clearPlaybackRange,
+      clipClipboard,
       commitTimeline,
+      copySelectedClipToClipboard,
       currentTime,
-      deleteSelectedClip,
+      cutSelectedClipToClipboard,
+      deleteCurrentSelection,
       duplicateSelectedClip,
       fitTimelineToViewport,
       handleRedo,
       handleUndo,
       pendingSafeCommand,
+      pasteClipFromClipboard,
       refreshFromProjectShots,
       seekTo,
       selectedClip,
+      selectedMusicBed,
+      selectedTitle,
+      segments,
+      setInPoint,
+      setOutPoint,
       splitSelectedClip,
       timeline,
+      timelineClips,
       totalDuration,
+      toggleLoopPlayback,
       trackStatus.byKind.titles.locked,
       updateSelectedClip,
     ]
@@ -1916,11 +2319,10 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const syncPreviewVideo = useCallback(
     (forceSeek = false) => {
       const video = previewVideoRef.current;
-      if (!video || !previewSegment || !previewSegment.clip.videoUrl || !trackStatus.videoVisible) {
+      const clip = previewSegment?.clip;
+      if (!video || !previewSegment || !clip || !clip.videoUrl || !clip.enabled || !trackStatus.videoVisible) {
         return;
       }
-
-      const clip = previewSegment.clip;
       const localTimeline = clamp(currentTime - previewSegment.start, 0, previewSegment.duration);
       const targetTime = clamp(
         clip.trimStart + localTimeline * clip.playbackRate,
@@ -1940,7 +2342,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
       video.playbackRate = clip.playbackRate;
 
       const clipTrackMuted = !trackStatus.dialogueAudible;
-      const muted = Boolean(timeline?.masterMuted || clipTrackMuted || clip.muted);
+      const muted = Boolean(timeline?.masterMuted || clipTrackMuted || clip.muted || !clip.enabled);
       const volume = clamp((clip.audioVolume * (timeline?.masterVolume ?? 100)) / 10000, 0, 1);
 
       video.muted = muted;
@@ -1973,7 +2375,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
     const video = previewVideoRef.current;
     const segment = previewSegment;
-    if (!video || !segment || !segment.clip.videoUrl || !trackStatus.videoVisible) return;
+    if (!video || !segment || !segment.clip.videoUrl || !segment.clip.enabled || !trackStatus.videoVisible) {
+      return;
+    }
 
     const elapsedSource = video.currentTime - segment.clip.trimStart;
     const elapsedTimeline = elapsedSource / segment.clip.playbackRate;
@@ -1985,34 +2389,34 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
     if (nextTimelineTime >= segment.end - 1 / 30) {
       const next = segment.end + 0.0001;
-      if (next >= totalDuration) {
+      if (next >= playbackEnd) {
         if (loopPlayback) {
-          setCurrentTime(0);
+          setCurrentTime(playbackStart);
         } else {
-          setCurrentTime(totalDuration);
+          setCurrentTime(playbackEnd);
           setIsPlaying(false);
         }
       } else {
         setCurrentTime(next);
       }
     }
-  }, [isPlaying, previewSegment, trackStatus.videoVisible, totalDuration, loopPlayback]);
+  }, [isPlaying, previewSegment, trackStatus.videoVisible, playbackStart, playbackEnd, loopPlayback]);
 
   const handlePreviewEnded = useCallback(() => {
     if (!isPlaying) return;
 
-    if (currentTime >= totalDuration - 1 / 60) {
+    if (currentTime >= playbackEnd - 1 / 60) {
       if (loopPlayback) {
-        setCurrentTime(0);
+        setCurrentTime(playbackStart);
       } else {
-        setCurrentTime(totalDuration);
+        setCurrentTime(playbackEnd);
         setIsPlaying(false);
       }
       return;
     }
 
-    setCurrentTime((previous) => Math.min(totalDuration, previous + 0.001));
-  }, [isPlaying, currentTime, totalDuration, loopPlayback]);
+    setCurrentTime((previous) => Math.min(playbackEnd, previous + 0.001));
+  }, [isPlaying, currentTime, playbackStart, playbackEnd, loopPlayback]);
 
   const handleExport = useCallback(() => {
     if (!project || !timeline) return;
@@ -2084,12 +2488,14 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         trimStartSeconds: toFixedNumber(segment.clip.trimStart, 3),
         trimEndSeconds: toFixedNumber(segment.clip.trimEnd, 3),
         playbackRate: segment.clip.playbackRate,
+        enabled: segment.clip.enabled,
         transition: {
           type: segment.clip.transitionType,
           durationSeconds: toFixedNumber(segment.clip.transitionDuration, 3),
         },
         audio: {
           muted:
+            !segment.clip.enabled ||
             segment.clip.muted ||
             timeline.masterMuted ||
             !trackStatus.dialogueAudible ||
@@ -2097,7 +2503,10 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           clipVolume: toFixedNumber(segment.clip.audioVolume, 1),
           masterVolume: toFixedNumber(timeline.masterVolume, 1),
           effectiveVolumePercent:
-            segment.clip.muted || timeline.masterMuted || !trackStatus.dialogueAudible
+            !segment.clip.enabled ||
+            segment.clip.muted ||
+            timeline.masterMuted ||
+            !trackStatus.dialogueAudible
               ? 0
               : toFixedNumber((segment.clip.audioVolume * timeline.masterVolume) / 100, 1),
         },
@@ -2343,29 +2752,39 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [totalDuration]);
 
   useEffect(() => {
+    setRangeStart((previous) => (previous === null ? null : clamp(previous, 0, totalDuration)));
+    setRangeEnd((previous) => (previous === null ? null : clamp(previous, 0, totalDuration)));
+  }, [totalDuration]);
+
+  useEffect(() => {
+    if (!playbackRange) return;
+    setCurrentTime((previous) => clamp(previous, playbackRange.start, playbackRange.end));
+  }, [playbackRange]);
+
+  useEffect(() => {
     syncPreviewVideo(false);
   }, [syncPreviewVideo]);
 
   useEffect(() => {
-    if (!isPlaying || totalDuration <= 0) return;
+    if (!isPlaying || playbackEnd <= playbackStart) return;
     if (canUsePreviewVideo) return;
 
     const timer = window.setInterval(() => {
       setCurrentTime((previous) => {
         const next = previous + PLAYBACK_TICK_SECONDS;
-        if (next >= totalDuration) {
+        if (next >= playbackEnd) {
           if (loopPlayback) {
-            return 0;
+            return playbackStart;
           }
           setIsPlaying(false);
-          return totalDuration;
+          return playbackEnd;
         }
         return next;
       });
     }, PLAYBACK_TICK_MS);
 
     return () => window.clearInterval(timer);
-  }, [isPlaying, totalDuration, loopPlayback, canUsePreviewVideo]);
+  }, [isPlaying, playbackStart, playbackEnd, loopPlayback, canUsePreviewVideo]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2375,7 +2794,31 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
       if (event.code === 'Space') {
         event.preventDefault();
-        setIsPlaying((playing) => !playing);
+        togglePlayback();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        copySelectedClipToClipboard();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'x') {
+        event.preventDefault();
+        cutSelectedClipToClipboard();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        pasteClipFromClipboard();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        duplicateSelectedClip();
         return;
       }
 
@@ -2415,9 +2858,39 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         return;
       }
 
+      if (event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        toggleLoopPlayback();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        setInPoint();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'o') {
+        event.preventDefault();
+        setOutPoint();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'x') {
+        event.preventDefault();
+        clearPlaybackRange();
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 's') {
         event.preventDefault();
         splitSelectedClip();
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        deleteCurrentSelection();
       }
     };
 
@@ -2426,11 +2899,21 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [
     addMarkerAtPlayhead,
     addTitleAtPlayhead,
+    clearPlaybackRange,
+    copySelectedClipToClipboard,
     currentTime,
+    cutSelectedClipToClipboard,
+    deleteCurrentSelection,
+    duplicateSelectedClip,
     handleRedo,
     handleUndo,
+    pasteClipFromClipboard,
     seekTo,
+    setInPoint,
+    setOutPoint,
     splitSelectedClip,
+    toggleLoopPlayback,
+    togglePlayback,
   ]);
 
   if (!project) {
@@ -2471,36 +2954,20 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             href={`/projects/${params.id}`}
             className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03]"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
+            <ChevronLeft className="h-4 w-4" />
           </a>
           <div className="bg-accent/10 text-accent flex h-10 w-10 items-center justify-center rounded-lg">
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"
-              />
-            </svg>
+            <Clapperboard className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight">{project.title} - Timeline</h1>
             <p className="text-vv-muted text-xs">
               {timelineClips.length} clips · {timeline?.musicBeds.length ?? 0} music ·{' '}
               {timeline?.titleOverlays.length ?? 0} titles · {formatTime(totalDuration)} total
+              {disabledClipCount > 0 ? ` · ${disabledClipCount} disabled` : ''}
+              {playbackRange
+                ? ` · range ${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)}`
+                : ''}
             </p>
           </div>
         </div>
@@ -2509,34 +2976,39 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           <button
             onClick={handleUndo}
             disabled={!canUndo}
-            className="vv-btn-ghost px-3 disabled:cursor-not-allowed disabled:opacity-40"
+            className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
             title="Undo (Ctrl/Cmd+Z)"
           >
+            <Undo2 className="h-3.5 w-3.5" />
             Undo
           </button>
           <button
             onClick={handleRedo}
             disabled={!canRedo}
-            className="vv-btn-ghost px-3 disabled:cursor-not-allowed disabled:opacity-40"
+            className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
             title="Redo (Ctrl/Cmd+Shift+Z)"
           >
+            <Redo2 className="h-3.5 w-3.5" />
             Redo
           </button>
           <button
-            onClick={() => setLoopPlayback((enabled) => !enabled)}
-            className={`vv-btn-ghost px-3 ${loopPlayback ? 'text-accent' : ''}`}
-            title="Loop playback"
+            onClick={toggleLoopPlayback}
+            className={`vv-btn-ghost inline-flex items-center gap-1.5 px-3 ${loopPlayback ? 'text-accent' : ''}`}
+            title={playbackRange ? 'Loop within In/Out range' : 'Loop full timeline'}
           >
-            Loop
+            <Repeat className="h-3.5 w-3.5" />
+            {playbackRange ? 'Loop Range' : 'Loop'}
           </button>
           <button
             onClick={fitTimelineToViewport}
-            className="vv-btn-secondary px-3 py-2 text-xs"
+            className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
             title="Fit full timeline to viewport"
           >
+            <ScanLine className="h-3.5 w-3.5" />
             Fit
           </button>
-          <label className="vv-btn-secondary cursor-pointer px-3 py-2 text-xs">
+          <label className="vv-btn-secondary inline-flex cursor-pointer items-center gap-1.5 px-3 py-2 text-xs">
+            <Upload className="h-3.5 w-3.5" />
             {importingMedia ? 'Importing...' : 'Import Clips'}
             <input
               ref={timelineImportInputRef}
@@ -2557,12 +3029,14 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           </label>
           <button
             onClick={refreshFromProjectShots}
-            className="vv-btn-secondary px-3 py-2 text-xs"
+            className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
             title="Reset timeline from completed clips"
           >
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh Clips
           </button>
-          <button onClick={handleExport} className="vv-btn-primary">
+          <button onClick={handleExport} className="vv-btn-primary inline-flex items-center gap-1.5">
+            <Download className="h-4 w-4" />
             Export EDL
           </button>
         </div>
@@ -2598,6 +3072,18 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                 onEnded={handlePreviewEnded}
                 onLoadedMetadata={() => syncPreviewVideo(true)}
               />
+            ) : previewClip && !previewClip.enabled ? (
+              <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_20%_20%,rgba(148,163,184,0.22),transparent_42%),radial-gradient(circle_at_80%_80%,rgba(100,116,139,0.18),transparent_44%)] p-8 text-center">
+                <div>
+                  <div className="mx-auto mb-4 inline-flex rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-vv-muted">
+                    Disabled Clip
+                  </div>
+                  <p className="text-sm font-semibold text-vv-primary">{previewClip.title}</p>
+                  <p className="text-vv-muted mt-2 max-w-md text-xs leading-relaxed">
+                    This clip is disabled in the timeline and will be skipped in preview/export output.
+                  </p>
+                </div>
+              </div>
             ) : trackStatus.videoVisible && previewClip?.thumbnailUrl ? (
               <MotionImage
                 src={previewClip.thumbnailUrl}
@@ -2688,43 +3174,34 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             <div className="vv-card space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => seekTo(0, { disableSnap: true })}
-                className="vv-btn-ghost px-3 py-2 text-xs"
+                onClick={() => seekTo(playbackRange?.start ?? 0, { disableSnap: true })}
+                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
               >
-                Start
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {playbackRange ? 'In' : 'Start'}
               </button>
               <button
-                onClick={() => setIsPlaying((playing) => !playing)}
+                onClick={togglePlayback}
                 className="bg-accent/10 text-accent hover:bg-accent/20 flex h-9 w-9 items-center justify-center rounded-lg transition-all"
                 title="Play / Pause"
               >
                 {isPlaying ? (
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                  </svg>
+                  <Pause className="h-4 w-4" />
                 ) : (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"
-                    />
-                  </svg>
+                  <Play className="h-4 w-4" />
                 )}
               </button>
               <button
-                onClick={() => seekTo(totalDuration, { disableSnap: true })}
-                className="vv-btn-ghost px-3 py-2 text-xs"
+                onClick={() => seekTo(playbackRange?.end ?? totalDuration, { disableSnap: true })}
+                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
               >
-                End
+                <ArrowRight className="h-3.5 w-3.5" />
+                {playbackRange ? 'Out' : 'End'}
               </button>
-              <div className="text-vv-muted ml-2 font-mono text-xs">{formatTime(currentTime)}</div>
+              <div className="text-vv-muted ml-2 font-mono text-xs">
+                {formatTime(currentTime)}
+                {playbackRange ? ` (${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)})` : ''}
+              </div>
 
               <div className="ml-auto flex items-center gap-2">
                 <span className="text-vv-muted text-[10px] uppercase tracking-wider">Zoom</span>
@@ -2749,31 +3226,83 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
               />
               <button
                 onClick={addMarkerAtPlayhead}
-                className="vv-btn-secondary px-3 py-2 text-xs"
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 disabled={totalDuration <= 0}
               >
+                <Flag className="h-3.5 w-3.5" />
                 Add Marker (M)
               </button>
               <button
                 onClick={addMusicBedAtPlayhead}
-                className="vv-btn-secondary px-3 py-2 text-xs"
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 disabled={trackStatus.byKind.music.locked}
               >
+                <Music2 className="h-3.5 w-3.5" />
                 Add Music
               </button>
               <button
                 onClick={addTitleAtPlayhead}
-                className="vv-btn-secondary px-3 py-2 text-xs"
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 disabled={trackStatus.byKind.titles.locked}
               >
+                <Type className="h-3.5 w-3.5" />
                 Add Title (T)
               </button>
               <button
                 onClick={splitSelectedClip}
-                className="vv-btn-secondary px-3 py-2 text-xs"
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
                 disabled={!selectedClip || trackStatus.byKind.video.locked}
               >
+                <Scissors className="h-3.5 w-3.5" />
                 Split Selected
+              </button>
+              <button
+                onClick={copySelectedClipToClipboard}
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                disabled={!selectedClip}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copy
+              </button>
+              <button
+                onClick={cutSelectedClipToClipboard}
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                disabled={!selectedClip || trackStatus.byKind.video.locked}
+              >
+                <ClipboardX className="h-3.5 w-3.5" />
+                Cut
+              </button>
+              <button
+                onClick={pasteClipFromClipboard}
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                disabled={!clipClipboard || trackStatus.byKind.video.locked}
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                Paste
+              </button>
+              <button
+                onClick={deleteCurrentSelection}
+                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                disabled={!selectedClip && !selectedMusicBed && !selectedTitle}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+              <button onClick={setInPoint} className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Set In (I)
+              </button>
+              <button onClick={setOutPoint} className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs">
+                <ArrowRight className="h-3.5 w-3.5" />
+                Set Out (O)
+              </button>
+              <button
+                onClick={clearPlaybackRange}
+                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                disabled={!playbackRange}
+              >
+                <ClipboardX className="h-3.5 w-3.5" />
+                Clear Range
               </button>
               <button
                 onClick={() =>
@@ -2782,14 +3311,26 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                     snapEnabled: !state.snapEnabled,
                   }))
                 }
-                className={`vv-btn-ghost px-3 py-2 text-xs ${timeline?.snapEnabled ? 'text-accent' : ''}`}
+                className={`vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs ${
+                  timeline?.snapEnabled ? 'text-accent' : ''
+                }`}
               >
+                <Magnet className="h-3.5 w-3.5" />
                 Snap {timeline?.snapEnabled ? 'On' : 'Off'}
               </button>
             </div>
 
+            {clipClipboard && (
+              <p className="text-vv-muted text-[11px]">
+                Clipboard ({clipClipboard.mode}):{' '}
+                <span className="font-mono">{clipClipboard.clip.title}</span>
+              </p>
+            )}
+
             <p className="text-vv-muted text-[11px]">
-              Shortcuts: Space play/pause, Arrow Left/Right nudge, M marker, T title, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
+              Shortcuts: Space play/pause, Arrow Left/Right nudge, I/O set range, X clear range, M
+              marker, T title, L loop, Ctrl/Cmd+C copy, Ctrl/Cmd+X cut, Ctrl/Cmd+V paste,
+              Delete remove selection, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
             </p>
             </div>
           )}
@@ -2835,6 +3376,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             removeSelectedTitle={removeSelectedTitle}
             updateTrack={updateTrack}
             commitTimeline={commitTimeline}
+            playbackRange={playbackRange}
+            onSetRangeFromSelectedClip={setPlaybackRangeToSelectedClip}
+            onClearPlaybackRange={clearPlaybackRange}
           />
         )}
 
@@ -2910,6 +3454,10 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           getWaveformBars={getWaveformBars}
           showMarkers={visibleModules.markers}
           onRemoveMarker={removeMarker}
+          playbackRange={playbackRange}
+          onSetRangeIn={setInPoint}
+          onSetRangeOut={setOutPoint}
+          onClearRange={clearPlaybackRange}
         />
       )}
 

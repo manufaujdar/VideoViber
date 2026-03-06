@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react';
 import type { AgentMessage, AgentQuickCommand } from './timeline-editor-types';
 
 interface AgentSidebarProps {
@@ -36,9 +37,10 @@ export function AgentSidebar({
         </div>
         <button
           onClick={onClearHistory}
-          className="vv-btn-ghost px-2 py-1 text-xs"
+          className="vv-btn-ghost inline-flex items-center gap-1 px-2 py-1 text-xs"
           title="Keep latest assistant message"
         >
+          <Trash2 className="h-3.5 w-3.5" />
           Clear
         </button>
       </div>
