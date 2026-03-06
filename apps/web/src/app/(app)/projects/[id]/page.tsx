@@ -20,6 +20,26 @@ async function readResponsePayload(response: Response) {
   }
 }
 
+function toApiErrorMessage(payload: any, fallback: string) {
+  const base =
+    payload?.error ||
+    payload?.details ||
+    (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
+    fallback;
+  const hint =
+    payload?.hint ||
+    payload?.result?.hint ||
+    payload?.result?.details ||
+    payload?.providerStatus ||
+    null;
+
+  if (typeof hint === 'string' && hint.trim().length > 0 && !String(base).includes(hint)) {
+    return `${base} ${hint}`.trim();
+  }
+
+  return base;
+}
+
 const MIN_IMPORT_DURATION = 0.5;
 const MAX_IMPORT_DURATION = 60 * 60 * 6; // 6 hours
 
@@ -93,12 +113,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
 
         const payload = await readResponsePayload(response);
         if (!response.ok) {
-          throw new Error(
-            payload?.error ||
-              payload?.details ||
-              (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
-              `Request failed (${response.status})`
-          );
+          throw new Error(toApiErrorMessage(payload, `Request failed (${response.status})`));
         }
 
         let finalPayload = payload;
@@ -128,9 +143,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
 
             if (!statusResponse.ok && statusPayload?.status !== 'processing') {
               throw new Error(
-                statusPayload?.details ||
-                  statusPayload?.error ||
-                  `Operation polling failed (${statusResponse.status})`
+                toApiErrorMessage(statusPayload, `Operation polling failed (${statusResponse.status})`)
               );
             }
 
@@ -146,9 +159,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
               statusPayload?.status === 'failed' ||
               statusPayload?.result?.status === 'failed'
             ) {
-              throw new Error(
-                statusPayload?.details || statusPayload?.error || 'Video generation failed'
-              );
+              throw new Error(toApiErrorMessage(statusPayload, 'Video generation failed'));
             }
 
             if (attempt === 20) {

@@ -323,7 +323,7 @@ export function TimelineTrackCanvas({
                       <span className="font-semibold">{row.short}</span>
                       <span className="text-vv-muted">{track.name}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[10px]">
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
                     <button
                       onClick={() =>
                         updateTrack(row.kind, (item) => ({
@@ -331,13 +331,14 @@ export function TimelineTrackCanvas({
                           locked: !item.locked,
                         }))
                       }
-                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
                         track.locked ? 'bg-amber-400/20 text-amber-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
                       title={track.locked ? 'Unlock track' : 'Lock track'}
+                      aria-label={track.locked ? `Unlock ${row.short} track` : `Lock ${row.short} track`}
                     >
                       <Lock className="h-3 w-3" />
-                      L
+                      <span className="font-semibold">L</span>
                     </button>
                     <button
                       onClick={() =>
@@ -346,13 +347,14 @@ export function TimelineTrackCanvas({
                           muted: !item.muted,
                         }))
                       }
-                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
                         track.muted ? 'bg-rose-400/20 text-rose-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
                       title={track.muted ? 'Unmute track' : 'Mute track'}
+                      aria-label={track.muted ? `Unmute ${row.short} track` : `Mute ${row.short} track`}
                     >
                       {track.muted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-                      M
+                      <span className="font-semibold">M</span>
                     </button>
                     <button
                       onClick={() =>
@@ -361,13 +363,14 @@ export function TimelineTrackCanvas({
                           solo: !item.solo,
                         }))
                       }
-                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
                         track.solo ? 'bg-cyan-400/20 text-cyan-100' : 'bg-white/[0.04] text-vv-muted'
                       }`}
                       title={track.solo ? 'Disable solo' : 'Enable solo'}
+                      aria-label={track.solo ? `Disable solo on ${row.short} track` : `Enable solo on ${row.short} track`}
                     >
                       <CircleDot className="h-3 w-3" />
-                      S
+                      <span className="font-semibold">S</span>
                     </button>
                       {disabledBySolo && <span className="text-vv-disabled ml-auto">Excluded</span>}
                     </div>

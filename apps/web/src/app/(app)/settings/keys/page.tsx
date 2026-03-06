@@ -7,17 +7,33 @@ import {
   type ProviderRuntimeHealth,
 } from '@/lib/providers';
 
+type GeminiDiagnostics = {
+  checkedAt: string;
+  keyConfigured: boolean;
+  keySource?: string;
+  veoModel: string;
+  plannerModel: string;
+  keyValid: boolean;
+  veoModelAvailable: boolean;
+  veoLongRunningSupported: boolean;
+  healthy: boolean;
+  hint?: string;
+  error?: string;
+  providerStatus?: string;
+};
+
 export default function ApiKeysPage() {
   const [providerHealth, setProviderHealth] = useState<ProviderRuntimeHealth[]>(
     defaultProviderRuntimeHealth
   );
+  const [geminiDiagnostics, setGeminiDiagnostics] = useState<GeminiDiagnostics | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     const loadHealth = async () => {
       try {
-        const response = await fetch('/api/generate', { method: 'GET' });
+        const response = await fetch('/api/generate?diagnostics=deep', { method: 'GET' });
         if (!response.ok) {
           return;
         }
@@ -40,6 +56,10 @@ export default function ApiKeysPage() {
 
         if (parsed.length > 0) {
           setProviderHealth(parsed);
+        }
+
+        if (payload?.diagnostics?.gemini && typeof payload.diagnostics.gemini === 'object') {
+          setGeminiDiagnostics(payload.diagnostics.gemini as GeminiDiagnostics);
         }
       } catch {
         // Keep defaults if API diagnostics endpoint is unavailable.
@@ -179,6 +199,60 @@ export default function ApiKeysPage() {
           <li>Reload this page and confirm providers show <code>Env Configured</code>.</li>
         </ol>
       </div>
+
+      {geminiDiagnostics && (
+        <div className="rounded-xl border border-white/5 bg-white/5 p-5 backdrop-blur-sm">
+          <h3 className="text-vv-secondary mb-3 text-sm font-bold">Gemini Runtime Diagnostics</h3>
+          <div className="flex flex-wrap gap-2">
+            <span
+              className={`vv-badge ${
+                geminiDiagnostics.healthy
+                  ? 'bg-emerald-500/10 text-emerald-300'
+                  : 'bg-amber-500/10 text-amber-300'
+              }`}
+            >
+              {geminiDiagnostics.healthy ? 'Ready for Veo Calls' : 'Needs Attention'}
+            </span>
+            <span className="vv-badge bg-blue-500/10 text-blue-300">
+              Key Source: {geminiDiagnostics.keySource || 'missing'}
+            </span>
+            <span className="vv-badge bg-indigo-500/10 text-indigo-300">
+              Veo Model: {geminiDiagnostics.veoModel}
+            </span>
+          </div>
+
+          <div className="text-vv-muted mt-4 space-y-1 text-sm">
+            <p>Planner model: {geminiDiagnostics.plannerModel}</p>
+            <p>Key valid for model list: {geminiDiagnostics.keyValid ? 'yes' : 'no'}</p>
+            <p>Veo model visible: {geminiDiagnostics.veoModelAvailable ? 'yes' : 'no'}</p>
+            <p>
+              predictLongRunning supported:{' '}
+              {geminiDiagnostics.veoLongRunningSupported ? 'yes' : 'no'}
+            </p>
+            <p>Checked at: {new Date(geminiDiagnostics.checkedAt).toLocaleString()}</p>
+          </div>
+
+          {(geminiDiagnostics.error || geminiDiagnostics.hint) && (
+            <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 text-sm">
+              {geminiDiagnostics.error && (
+                <p className="text-amber-200">
+                  <strong>Error:</strong> {geminiDiagnostics.error}
+                </p>
+              )}
+              {geminiDiagnostics.hint && (
+                <p className="text-amber-100">
+                  <strong>Hint:</strong> {geminiDiagnostics.hint}
+                </p>
+              )}
+              {geminiDiagnostics.providerStatus && (
+                <p className="text-amber-100">
+                  <strong>Status:</strong> {geminiDiagnostics.providerStatus}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

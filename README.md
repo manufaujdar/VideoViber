@@ -127,6 +127,11 @@ Required production env for Gemini + Veo generation:
 - `GEMINI_API_KEY` or `GOOGLE_API_KEY` (or `GOOGLE_GENAI_API_KEY`)
 - `GEMINI_VEO_MODEL` (optional, default `veo-3.1-generate-preview`)
 
+Important runtime requirement:
+
+- A key can be syntactically valid but still fail generation when quota/billing or model access is missing (typically `429 RESOURCE_EXHAUSTED` or `403 PERMISSION_DENIED`).
+- Use `/api/generate?diagnostics=deep` and `/settings/keys` to verify key validity + Veo model support before testing generation.
+
 Recommended CLI flow:
 
 ```bash

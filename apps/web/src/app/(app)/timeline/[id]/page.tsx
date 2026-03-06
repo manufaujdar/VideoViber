@@ -48,15 +48,20 @@ import {
   TIMELINE_THEME_BY_ID,
   TIMELINE_THEME_PRESETS,
   TIMELINE_THEME_STORAGE_PREFIX,
+  TIMELINE_UI_STORAGE_PREFIX,
 } from './_components/timeline-editor-config';
 import type {
   AgentMessage,
+  TimelineColumnPreset,
+  TimelineDensityMode,
   TimelineModuleFlags,
   TimelineModuleKey,
   TimelineThemeId,
   TimelineThemeStoragePayload,
+  TimelineUiPreferences,
 } from './_components/timeline-editor-types';
 import { ThemeLayoutPanel } from './_components/theme-layout-panel';
+import { TimelineWorkspaceToolbar } from './_components/timeline-workspace-toolbar';
 import {
   type ClipColor,
   type DragState,
@@ -159,6 +164,79 @@ const CLIP_COLOR_CLASSES: Record<ClipColor, { idle: string; active: string; acce
     idle: 'border-slate-300/30 bg-slate-400/10 text-slate-100 hover:border-slate-200/60',
     active: 'border-slate-200 bg-slate-300/20 text-slate-100 ring-1 ring-slate-200/50',
     accent: 'bg-slate-300/90',
+  },
+};
+
+const DEFAULT_TIMELINE_UI_PREFERENCES: TimelineUiPreferences = {
+  density: 'balanced',
+  columnPreset: 'balanced',
+  previewCollapsed: false,
+  transportCollapsed: false,
+  tracksCollapsed: false,
+  inspectorCollapsed: false,
+  agentCollapsed: false,
+  dockTransport: false,
+};
+
+const DENSITY_CLASS_MAP: Record<
+  TimelineDensityMode,
+  {
+    pageSpacing: string;
+    clusterGap: string;
+    gridGap: string;
+    sectionGap: string;
+    previewMinHeight: string;
+  }
+> = {
+  compact: {
+    pageSpacing: 'space-y-2',
+    clusterGap: 'gap-2',
+    gridGap: 'gap-2',
+    sectionGap: 'gap-2',
+    previewMinHeight: 'min-h-[220px]',
+  },
+  balanced: {
+    pageSpacing: 'space-y-3',
+    clusterGap: 'gap-3',
+    gridGap: 'gap-3',
+    sectionGap: 'gap-3',
+    previewMinHeight: 'min-h-[260px]',
+  },
+  spacious: {
+    pageSpacing: 'space-y-4',
+    clusterGap: 'gap-4',
+    gridGap: 'gap-4',
+    sectionGap: 'gap-4',
+    previewMinHeight: 'min-h-[320px]',
+  },
+};
+
+const COLUMN_SPAN_PRESET_CLASSES: Record<
+  TimelineColumnPreset,
+  {
+    both: { left: string; inspector: string; agent: string };
+    inspectorOnly: { left: string; inspector: string };
+    agentOnly: { left: string; agent: string };
+    leftOnly: string;
+  }
+> = {
+  balanced: {
+    both: { left: 'xl:col-span-7', inspector: 'xl:col-span-3', agent: 'xl:col-span-2' },
+    inspectorOnly: { left: 'xl:col-span-8', inspector: 'xl:col-span-4' },
+    agentOnly: { left: 'xl:col-span-8', agent: 'xl:col-span-4' },
+    leftOnly: 'xl:col-span-12',
+  },
+  'timeline-focus': {
+    both: { left: 'xl:col-span-8', inspector: 'xl:col-span-2', agent: 'xl:col-span-2' },
+    inspectorOnly: { left: 'xl:col-span-9', inspector: 'xl:col-span-3' },
+    agentOnly: { left: 'xl:col-span-9', agent: 'xl:col-span-3' },
+    leftOnly: 'xl:col-span-12',
+  },
+  'inspector-focus': {
+    both: { left: 'xl:col-span-6', inspector: 'xl:col-span-4', agent: 'xl:col-span-2' },
+    inspectorOnly: { left: 'xl:col-span-7', inspector: 'xl:col-span-5' },
+    agentOnly: { left: 'xl:col-span-8', agent: 'xl:col-span-4' },
+    leftOnly: 'xl:col-span-12',
   },
 };
 
@@ -351,6 +429,28 @@ const parseThemeFromCommand = (command: string): TimelineThemeId | null => {
   return null;
 };
 
+const parseDensityFromCommand = (command: string): TimelineDensityMode | null => {
+  const normalized = command.toLowerCase();
+  if (normalized.includes('compact')) return 'compact';
+  if (normalized.includes('spacious') || normalized.includes('comfortable')) return 'spacious';
+  if (normalized.includes('balanced') || normalized.includes('default')) return 'balanced';
+  return null;
+};
+
+const parseColumnPresetFromCommand = (command: string): TimelineColumnPreset | null => {
+  const normalized = command.toLowerCase();
+  if (normalized.includes('timeline') || normalized.includes('focus timeline')) {
+    return 'timeline-focus';
+  }
+  if (normalized.includes('inspector') || normalized.includes('focus inspector')) {
+    return 'inspector-focus';
+  }
+  if (normalized.includes('balanced') || normalized.includes('default')) {
+    return 'balanced';
+  }
+  return null;
+};
+
 const formatAgentMessageTime = (timestamp: number) => {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -515,6 +615,27 @@ const isTimelineThemeStoragePayload = (value: unknown): value is TimelineThemeSt
   return true;
 };
 
+const isTimelineUiPreferences = (value: unknown): value is TimelineUiPreferences => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<TimelineUiPreferences>;
+  const densityValues: TimelineDensityMode[] = ['compact', 'balanced', 'spacious'];
+  const presetValues: TimelineColumnPreset[] = ['balanced', 'timeline-focus', 'inspector-focus'];
+
+  return Boolean(
+    candidate &&
+      candidate.density &&
+      densityValues.includes(candidate.density) &&
+      candidate.columnPreset &&
+      presetValues.includes(candidate.columnPreset) &&
+      typeof candidate.previewCollapsed === 'boolean' &&
+      typeof candidate.transportCollapsed === 'boolean' &&
+      typeof candidate.tracksCollapsed === 'boolean' &&
+      typeof candidate.inspectorCollapsed === 'boolean' &&
+      typeof candidate.agentCollapsed === 'boolean' &&
+      typeof candidate.dockTransport === 'boolean'
+  );
+};
+
 function clampTrimStart(clip: TimelineClip, nextStart: number) {
   const maxStart = Math.max(0, clip.trimEnd - MIN_CLIP_SPAN_SECONDS);
   return clamp(nextStart, 0, maxStart);
@@ -606,6 +727,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const [activeThemeId, setActiveThemeId] = useState<TimelineThemeId>('advanced-studio');
   const [moduleOverrides, setModuleOverrides] = useState<Partial<TimelineModuleFlags>>({});
   const [showModuleEditor, setShowModuleEditor] = useState(false);
+  const [uiPreferences, setUiPreferences] = useState<TimelineUiPreferences>(
+    DEFAULT_TIMELINE_UI_PREFERENCES
+  );
   const [agentInput, setAgentInput] = useState('');
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
     {
@@ -622,6 +746,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
   const loadedProjectIdRef = useRef<string | null>(null);
   const loadedThemeKeyRef = useRef<string | null>(null);
+  const loadedUiKeyRef = useRef<string | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const timelineViewportRef = useRef<HTMLDivElement | null>(null);
   const timelineImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -631,6 +756,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const waveformAudioContextRef = useRef<AudioContext | null>(null);
   const timelineStorageKey = project ? `videoviber-timeline-${project.id}` : null;
   const themeStorageKey = project ? `${TIMELINE_THEME_STORAGE_PREFIX}${project.id}` : null;
+  const uiStorageKey = project ? `${TIMELINE_UI_STORAGE_PREFIX}${project.id}` : null;
 
   const timeline = history.index >= 0 ? history.entries[history.index] ?? null : null;
   const timelineClips = useMemo(() => timeline?.clips ?? [], [timeline]);
@@ -1639,6 +1765,14 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     [activeTheme.modules]
   );
 
+  const patchUiPreferences = useCallback((patch: Partial<TimelineUiPreferences>) => {
+    setUiPreferences((previous) => ({ ...previous, ...patch }));
+  }, []);
+
+  const resetUiPreferences = useCallback(() => {
+    setUiPreferences(DEFAULT_TIMELINE_UI_PREFERENCES);
+  }, []);
+
   const runAgentCommand = useCallback(
     (rawInput: string) => {
       const trimmed = rawInput.trim();
@@ -1694,7 +1828,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         lower.includes('commands')
       ) {
         respond(
-          'Commands: theme minimal|advanced|storyboard|audio|review|assistant|finishing, split selected clip, copy selected clip, cut selected clip, paste clip, duplicate clip, delete clip, disable selected clip, enable selected clip, add marker intro, add title Intro Card, add music bed, set in, set out, clear range, loop on|off|toggle, mute timeline, unmute timeline, snap on|off, zoom 1.6, speed 1.25, seek 1:20, find clip intro, fit timeline, undo, redo.'
+          'Commands: theme minimal|advanced|storyboard|audio|review|assistant|finishing, density compact|balanced|spacious, layout timeline focus|inspector focus|balanced, collapse or expand preview|transport|tracks|inspector|agent, dock transport, undock transport, reset layout, split selected clip, copy selected clip, cut selected clip, paste clip, duplicate clip, delete clip, disable selected clip, enable selected clip, add marker intro, add title Intro Card, add music bed, set in, set out, clear range, loop on|off|toggle, mute timeline, unmute timeline, snap on|off, zoom 1.6, speed 1.25, seek 1:20, find clip intro, fit timeline, undo, redo.'
         );
         return;
       }
@@ -1711,6 +1845,131 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         const theme = TIMELINE_THEME_BY_ID[themeId];
         perform(`Theme switched to "${theme.name}".`, () => applyThemePreset(themeId));
         return;
+      }
+
+      if (
+        lower.includes('reset layout') ||
+        lower.includes('layout reset') ||
+        lower.includes('reset workspace')
+      ) {
+        perform('Workspace layout preferences reset.', () => resetUiPreferences());
+        return;
+      }
+
+      if (lower.includes('dock transport') || lower.includes('pin transport')) {
+        if (!visibleModules.timelineControls) {
+          respond('Transport module is not enabled in this theme.');
+          return;
+        }
+        perform('Transport controls docked.', () => patchUiPreferences({ dockTransport: true }));
+        return;
+      }
+
+      if (lower.includes('undock transport') || lower.includes('unpin transport')) {
+        if (!visibleModules.timelineControls) {
+          respond('Transport module is not enabled in this theme.');
+          return;
+        }
+        perform('Transport controls undocked.', () => patchUiPreferences({ dockTransport: false }));
+        return;
+      }
+
+      const densityFromCommand = parseDensityFromCommand(lower);
+      if (
+        densityFromCommand &&
+        (lower.includes('density') ||
+          lower.includes('spacing') ||
+          lower.includes('compact') ||
+          lower.includes('spacious') ||
+          lower.includes('comfortable') ||
+          lower.includes('balanced'))
+      ) {
+        perform(`Workspace density set to "${densityFromCommand}".`, () =>
+          patchUiPreferences({ density: densityFromCommand })
+        );
+        return;
+      }
+
+      const presetFromCommand = parseColumnPresetFromCommand(lower);
+      if (
+        presetFromCommand &&
+        (lower.includes('layout') ||
+          lower.includes('columns') ||
+          lower.includes('column') ||
+          lower.includes('focus') ||
+          lower.includes('preset'))
+      ) {
+        perform(`Workspace column preset set to "${presetFromCommand}".`, () =>
+          patchUiPreferences({ columnPreset: presetFromCommand })
+        );
+        return;
+      }
+
+      const wantsCollapse = lower.includes('collapse') || lower.includes('hide');
+      const wantsExpand = lower.includes('expand') || lower.includes('show');
+      const nextCollapsed =
+        wantsCollapse && !wantsExpand ? true : wantsExpand && !wantsCollapse ? false : null;
+
+      if (nextCollapsed !== null) {
+        if (lower.includes('preview')) {
+          if (!visibleModules.preview) {
+            respond('Preview module is not enabled in this theme.');
+            return;
+          }
+          perform(
+            `${nextCollapsed ? 'Collapsed' : 'Expanded'} preview panel.`,
+            () => patchUiPreferences({ previewCollapsed: nextCollapsed })
+          );
+          return;
+        }
+
+        if (lower.includes('transport')) {
+          if (!visibleModules.timelineControls) {
+            respond('Transport module is not enabled in this theme.');
+            return;
+          }
+          perform(
+            `${nextCollapsed ? 'Collapsed' : 'Expanded'} transport panel.`,
+            () => patchUiPreferences({ transportCollapsed: nextCollapsed })
+          );
+          return;
+        }
+
+        if (lower.includes('track') || lower.includes('timeline')) {
+          if (!visibleModules.timelineTracks) {
+            respond('Timeline tracks module is not enabled in this theme.');
+            return;
+          }
+          perform(
+            `${nextCollapsed ? 'Collapsed' : 'Expanded'} timeline track canvas.`,
+            () => patchUiPreferences({ tracksCollapsed: nextCollapsed })
+          );
+          return;
+        }
+
+        if (lower.includes('inspector')) {
+          if (!visibleModules.inspector && !visibleModules.trackMixer && !visibleModules.audioPanel) {
+            respond('Inspector module is not enabled in this theme.');
+            return;
+          }
+          perform(
+            `${nextCollapsed ? 'Collapsed' : 'Expanded'} inspector column.`,
+            () => patchUiPreferences({ inspectorCollapsed: nextCollapsed })
+          );
+          return;
+        }
+
+        if (lower.includes('agent') || lower.includes('chat sidebar')) {
+          if (!visibleModules.chatSidebar) {
+            respond('Agent sidebar module is not enabled in this theme.');
+            return;
+          }
+          perform(
+            `${nextCollapsed ? 'Collapsed' : 'Expanded'} agent sidebar.`,
+            () => patchUiPreferences({ agentCollapsed: nextCollapsed })
+          );
+          return;
+        }
       }
 
       if (lower.includes('split')) {
@@ -2098,8 +2357,10 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
       handleRedo,
       handleUndo,
       pendingSafeCommand,
+      patchUiPreferences,
       pasteClipFromClipboard,
       refreshFromProjectShots,
+      resetUiPreferences,
       seekTo,
       selectedClip,
       selectedMusicBed,
@@ -2114,6 +2375,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
       toggleLoopPlayback,
       trackStatus.byKind.titles.locked,
       updateSelectedClip,
+      visibleModules,
     ]
   );
 
@@ -2642,6 +2904,32 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [themeStorageKey, activeThemeId, moduleOverrides]);
 
   useEffect(() => {
+    if (!uiStorageKey) return;
+    if (loadedUiKeyRef.current === uiStorageKey) return;
+    loadedUiKeyRef.current = uiStorageKey;
+
+    try {
+      const raw = window.localStorage.getItem(uiStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (isTimelineUiPreferences(parsed)) {
+        setUiPreferences(parsed);
+      }
+    } catch {
+      // Ignore malformed UI preference payloads and use defaults.
+    }
+  }, [uiStorageKey]);
+
+  useEffect(() => {
+    if (!uiStorageKey) return;
+    try {
+      window.localStorage.setItem(uiStorageKey, JSON.stringify(uiPreferences));
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [uiStorageKey, uiPreferences]);
+
+  useEffect(() => {
     const viewportElement = timelineViewportRef.current;
     if (!viewportElement) return;
 
@@ -2949,21 +3237,37 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     { kind: 'titles', short: 'T1', description: 'Text overlays', heightClass: 'h-9' },
   ];
 
-  const showInspectorColumn =
+  const availableInspectorColumn =
     visibleModules.inspector || visibleModules.trackMixer || visibleModules.audioPanel;
-  const showAgentSidebar = visibleModules.chatSidebar;
+  const availableAgentSidebar = visibleModules.chatSidebar;
+  const showInspectorColumn = availableInspectorColumn && !uiPreferences.inspectorCollapsed;
+  const showAgentSidebar = availableAgentSidebar && !uiPreferences.agentCollapsed;
+  const showPreviewPanel = visibleModules.preview && !uiPreferences.previewCollapsed;
+  const showTransportPanel = visibleModules.timelineControls && !uiPreferences.transportCollapsed;
+  const showTimelineTracks = visibleModules.timelineTracks && !uiPreferences.tracksCollapsed;
+  const densityClasses = DENSITY_CLASS_MAP[uiPreferences.density];
+  const spanPreset = COLUMN_SPAN_PRESET_CLASSES[uiPreferences.columnPreset];
+
   const leftColumnSpanClass =
     showInspectorColumn && showAgentSidebar
-      ? 'xl:col-span-7'
-      : showInspectorColumn || showAgentSidebar
-        ? 'xl:col-span-8'
-        : 'xl:col-span-12';
-  const inspectorSpanClass = showAgentSidebar ? 'xl:col-span-3' : 'xl:col-span-4';
-  const agentSpanClass = showInspectorColumn ? 'xl:col-span-2' : 'xl:col-span-4';
+      ? spanPreset.both.left
+      : showInspectorColumn
+        ? spanPreset.inspectorOnly.left
+        : showAgentSidebar
+          ? spanPreset.agentOnly.left
+          : spanPreset.leftOnly;
+  const inspectorSpanClass = showAgentSidebar
+    ? spanPreset.both.inspector
+    : spanPreset.inspectorOnly.inspector;
+  const agentSpanClass = showInspectorColumn ? spanPreset.both.agent : spanPreset.agentOnly.agent;
 
   return (
-    <div className="animate-fade-in-up flex h-[calc(100vh-3.5rem)] flex-col space-y-3">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div
+      className={`animate-fade-in-up flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden ${densityClasses.pageSpacing}`}
+    >
+      <div
+        className={`flex flex-col ${densityClasses.clusterGap} xl:flex-row xl:items-center xl:justify-between`}
+      >
         <div className="flex items-center gap-3">
           <a
             href={`/projects/${params.id}`}
@@ -2987,73 +3291,80 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Undo (Ctrl/Cmd+Z)"
-          >
-            <Undo2 className="h-3.5 w-3.5" />
-            Undo
-          </button>
-          <button
-            onClick={handleRedo}
-            disabled={!canRedo}
-            className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Redo (Ctrl/Cmd+Shift+Z)"
-          >
-            <Redo2 className="h-3.5 w-3.5" />
-            Redo
-          </button>
-          <button
-            onClick={toggleLoopPlayback}
-            className={`vv-btn-ghost inline-flex items-center gap-1.5 px-3 ${loopPlayback ? 'text-accent' : ''}`}
-            title={playbackRange ? 'Loop within In/Out range' : 'Loop full timeline'}
-          >
-            <Repeat className="h-3.5 w-3.5" />
-            {playbackRange ? 'Loop Range' : 'Loop'}
-          </button>
-          <button
-            onClick={fitTimelineToViewport}
-            className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-            title="Fit full timeline to viewport"
-          >
-            <ScanLine className="h-3.5 w-3.5" />
-            Fit
-          </button>
-          <label className="vv-btn-secondary inline-flex cursor-pointer items-center gap-1.5 px-3 py-2 text-xs">
-            <Upload className="h-3.5 w-3.5" />
-            {importingMedia ? 'Importing...' : 'Import Clips'}
-            <input
-              ref={timelineImportInputRef}
-              type="file"
-              accept="video/*"
-              multiple
-              className="hidden"
-              disabled={importingMedia}
-              onChange={(event) => {
-                if (event.target.files) {
-                  void handleImportMedia(event.target.files);
-                }
-                if (timelineImportInputRef.current) {
-                  timelineImportInputRef.current.value = '';
-                }
-              }}
-            />
-          </label>
-          <button
-            onClick={refreshFromProjectShots}
-            className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-            title="Reset timeline from completed clips"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh Clips
-          </button>
-          <button onClick={handleExport} className="vv-btn-primary inline-flex items-center gap-1.5">
-            <Download className="h-4 w-4" />
-            Export EDL
-          </button>
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max items-center gap-2 pr-1">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Undo (Ctrl/Cmd+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              Undo
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Redo (Ctrl/Cmd+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+              Redo
+            </button>
+            <button
+              onClick={toggleLoopPlayback}
+              className={`vv-btn-ghost inline-flex items-center gap-1.5 px-3 ${
+                loopPlayback ? 'text-accent' : ''
+              }`}
+              title={playbackRange ? 'Loop within In/Out range' : 'Loop full timeline'}
+            >
+              <Repeat className="h-3.5 w-3.5" />
+              {playbackRange ? 'Loop Range' : 'Loop'}
+            </button>
+            <button
+              onClick={fitTimelineToViewport}
+              className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+              title="Fit full timeline to viewport"
+            >
+              <ScanLine className="h-3.5 w-3.5" />
+              Fit
+            </button>
+            <label className="vv-btn-secondary inline-flex cursor-pointer items-center gap-1.5 px-3 py-2 text-xs">
+              <Upload className="h-3.5 w-3.5" />
+              {importingMedia ? 'Importing...' : 'Import Clips'}
+              <input
+                ref={timelineImportInputRef}
+                type="file"
+                accept="video/*"
+                multiple
+                className="hidden"
+                disabled={importingMedia}
+                onChange={(event) => {
+                  if (event.target.files) {
+                    void handleImportMedia(event.target.files);
+                  }
+                  if (timelineImportInputRef.current) {
+                    timelineImportInputRef.current.value = '';
+                  }
+                }}
+              />
+            </label>
+            <button
+              onClick={refreshFromProjectShots}
+              className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+              title="Reset timeline from completed clips"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh Clips
+            </button>
+            <button
+              onClick={handleExport}
+              className="vv-btn-primary inline-flex items-center gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              Export EDL
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3070,10 +3381,40 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         onToggleModuleVisibility={toggleModuleVisibility}
       />
 
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-12">
-        <div className={`flex min-h-0 flex-col gap-3 ${leftColumnSpanClass}`}>
-          {visibleModules.preview && (
-            <div className="vv-card from-vv-surface to-vv-base relative flex min-h-[260px] flex-1 items-center justify-center overflow-hidden bg-gradient-to-br">
+      <TimelineWorkspaceToolbar
+        preferences={uiPreferences}
+        availablePanels={{
+          preview: visibleModules.preview,
+          transport: visibleModules.timelineControls,
+          tracks: visibleModules.timelineTracks,
+          inspector: availableInspectorColumn,
+          agent: availableAgentSidebar,
+        }}
+        onDensityChange={(density) => patchUiPreferences({ density })}
+        onColumnPresetChange={(columnPreset) => patchUiPreferences({ columnPreset })}
+        onTogglePreview={() =>
+          patchUiPreferences({ previewCollapsed: !uiPreferences.previewCollapsed })
+        }
+        onToggleTransport={() =>
+          patchUiPreferences({ transportCollapsed: !uiPreferences.transportCollapsed })
+        }
+        onToggleTracks={() => patchUiPreferences({ tracksCollapsed: !uiPreferences.tracksCollapsed })}
+        onToggleInspector={() =>
+          patchUiPreferences({ inspectorCollapsed: !uiPreferences.inspectorCollapsed })
+        }
+        onToggleAgent={() => patchUiPreferences({ agentCollapsed: !uiPreferences.agentCollapsed })}
+        onToggleDockTransport={() =>
+          patchUiPreferences({ dockTransport: !uiPreferences.dockTransport })
+        }
+        onReset={resetUiPreferences}
+      />
+
+      <div className={`grid min-h-0 flex-1 ${densityClasses.gridGap} xl:grid-cols-12`}>
+        <div className={`flex min-h-0 flex-col ${densityClasses.sectionGap} ${leftColumnSpanClass}`}>
+          {showPreviewPanel && (
+            <div
+              className={`vv-card from-vv-surface to-vv-base relative flex ${densityClasses.previewMinHeight} flex-1 items-center justify-center overflow-hidden bg-gradient-to-br`}
+            >
             {canUsePreviewVideo && previewClip?.videoUrl ? (
               <video
                 ref={previewVideoRef}
@@ -3185,172 +3526,196 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             </div>
           )}
 
-          {visibleModules.timelineControls && (
-            <div className="vv-card space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => seekTo(playbackRange?.start ?? 0, { disableSnap: true })}
-                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                {playbackRange ? 'In' : 'Start'}
-              </button>
-              <button
-                onClick={togglePlayback}
-                className="bg-accent/10 text-accent hover:bg-accent/20 flex h-9 w-9 items-center justify-center rounded-lg transition-all"
-                title="Play / Pause"
-              >
-                {isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-              <button
-                onClick={() => seekTo(playbackRange?.end ?? totalDuration, { disableSnap: true })}
-                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-                {playbackRange ? 'Out' : 'End'}
-              </button>
-              <div className="text-vv-secondary ml-2 font-mono text-xs">
-                {formatTime(currentTime)}
-                {playbackRange ? ` (${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)})` : ''}
+          {showTransportPanel && (
+            <div
+              className={`space-y-3 ${
+                uiPreferences.dockTransport
+                  ? 'vv-card border-accent/25 sticky bottom-0 z-20 bg-vv-base/90 backdrop-blur'
+                  : 'vv-card'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-vv-muted text-[10px] font-semibold uppercase tracking-wider">
+                  Transport & Editing Rail
+                </p>
+                <p className="text-vv-secondary ml-auto text-[11px]">
+                  {uiPreferences.dockTransport
+                    ? 'Docked for persistent access'
+                    : 'Scrollable controls keep all actions reachable'}
+                </p>
               </div>
 
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-vv-muted text-[10px] uppercase tracking-wider">Zoom</span>
-                <input
-                  type="range"
-                  min="0.25"
-                  max="8"
-                  step="0.1"
-                  value={zoom}
-                  onChange={(event) => setZoom(Number(event.target.value))}
-                  className="accent-accent w-28"
-                />
+              <div className="overflow-x-auto pb-1">
+                <div className="flex min-w-max items-center gap-2 pr-1">
+                  <button
+                    onClick={() => seekTo(playbackRange?.start ?? 0, { disableSnap: true })}
+                    className="vv-btn-ghost inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    {playbackRange ? 'Jump In' : 'Jump Start'}
+                  </button>
+                  <button
+                    onClick={togglePlayback}
+                    className="bg-accent/10 text-accent hover:bg-accent/20 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all"
+                    title="Play / Pause"
+                    aria-label="Play or pause timeline"
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => seekTo(playbackRange?.end ?? totalDuration, { disableSnap: true })}
+                    className="vv-btn-ghost inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    {playbackRange ? 'Jump Out' : 'Jump End'}
+                  </button>
+                  <div className="text-vv-secondary ml-1 shrink-0 font-mono text-xs">
+                    {formatTime(currentTime)}
+                    {playbackRange ? ` (${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)})` : ''}
+                  </div>
+                  <div className="bg-vv-border/60 ml-2 h-6 w-px shrink-0" />
+                  <span className="text-vv-muted shrink-0 text-[10px] uppercase tracking-wider">Zoom</span>
+                  <input
+                    type="range"
+                    min="0.25"
+                    max="8"
+                    step="0.1"
+                    value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                    className="accent-accent w-32 shrink-0"
+                    aria-label="Timeline zoom"
+                  />
+                  <span className="text-vv-secondary shrink-0 font-mono text-xs">{zoom.toFixed(2)}x</span>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                value={markerLabel}
-                onChange={(event) => setMarkerLabel(event.target.value)}
-                placeholder="Marker label"
-                className="vv-input h-9 w-full max-w-[220px] py-2 text-xs"
-              />
-              <button
-                onClick={addMarkerAtPlayhead}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={totalDuration <= 0}
-              >
-                <Flag className="h-3.5 w-3.5" />
-                Add Marker (M)
-              </button>
-              <button
-                onClick={addMusicBedAtPlayhead}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={trackStatus.byKind.music.locked}
-              >
-                <Music2 className="h-3.5 w-3.5" />
-                Add Music
-              </button>
-              <button
-                onClick={addTitleAtPlayhead}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={trackStatus.byKind.titles.locked}
-              >
-                <Type className="h-3.5 w-3.5" />
-                Add Title (T)
-              </button>
-              <button
-                onClick={splitSelectedClip}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!selectedClip || trackStatus.byKind.video.locked}
-              >
-                <Scissors className="h-3.5 w-3.5" />
-                Split Selected
-              </button>
-              <button
-                onClick={copySelectedClipToClipboard}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!selectedClip}
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Copy
-              </button>
-              <button
-                onClick={cutSelectedClipToClipboard}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!selectedClip || trackStatus.byKind.video.locked}
-              >
-                <ClipboardX className="h-3.5 w-3.5" />
-                Cut
-              </button>
-              <button
-                onClick={pasteClipFromClipboard}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!clipClipboard || trackStatus.byKind.video.locked}
-              >
-                <ClipboardPaste className="h-3.5 w-3.5" />
-                Paste
-              </button>
-              <button
-                onClick={deleteCurrentSelection}
-                className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!selectedClip && !selectedMusicBed && !selectedTitle}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </button>
-              <button onClick={setInPoint} className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs">
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Set In (I)
-              </button>
-              <button onClick={setOutPoint} className="vv-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs">
-                <ArrowRight className="h-3.5 w-3.5" />
-                Set Out (O)
-              </button>
-              <button
-                onClick={clearPlaybackRange}
-                className="vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs"
-                disabled={!playbackRange}
-              >
-                <ClipboardX className="h-3.5 w-3.5" />
-                Clear Range
-              </button>
-              <button
-                onClick={() =>
-                  commitTimeline((state) => ({
-                    ...state,
-                    snapEnabled: !state.snapEnabled,
-                  }))
-                }
-                className={`vv-btn-ghost inline-flex items-center gap-1.5 px-3 py-2 text-xs ${
-                  timeline?.snapEnabled ? 'text-accent' : ''
-                }`}
-              >
-                <Magnet className="h-3.5 w-3.5" />
-                Snap {timeline?.snapEnabled ? 'On' : 'Off'}
-              </button>
-            </div>
+              <div className="overflow-x-auto pb-1">
+                <div className="flex min-w-max items-center gap-2 pr-1">
+                  <input
+                    value={markerLabel}
+                    onChange={(event) => setMarkerLabel(event.target.value)}
+                    placeholder="Marker label"
+                    className="vv-input h-9 w-[220px] shrink-0 py-2 text-xs"
+                  />
+                  <button
+                    onClick={addMarkerAtPlayhead}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={totalDuration <= 0}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    Add Marker (M)
+                  </button>
+                  <button
+                    onClick={addMusicBedAtPlayhead}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={trackStatus.byKind.music.locked}
+                  >
+                    <Music2 className="h-3.5 w-3.5" />
+                    Add Music
+                  </button>
+                  <button
+                    onClick={addTitleAtPlayhead}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={trackStatus.byKind.titles.locked}
+                  >
+                    <Type className="h-3.5 w-3.5" />
+                    Add Title (T)
+                  </button>
+                  <button
+                    onClick={splitSelectedClip}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!selectedClip || trackStatus.byKind.video.locked}
+                  >
+                    <Scissors className="h-3.5 w-3.5" />
+                    Split Selected
+                  </button>
+                  <button
+                    onClick={copySelectedClipToClipboard}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!selectedClip}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
+                  <button
+                    onClick={cutSelectedClipToClipboard}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!selectedClip || trackStatus.byKind.video.locked}
+                  >
+                    <ClipboardX className="h-3.5 w-3.5" />
+                    Cut
+                  </button>
+                  <button
+                    onClick={pasteClipFromClipboard}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!clipClipboard || trackStatus.byKind.video.locked}
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    Paste
+                  </button>
+                  <button
+                    onClick={deleteCurrentSelection}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!selectedClip && !selectedMusicBed && !selectedTitle}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                  <button
+                    onClick={setInPoint}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Set In (I)
+                  </button>
+                  <button
+                    onClick={setOutPoint}
+                    className="vv-btn-secondary inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    Set Out (O)
+                  </button>
+                  <button
+                    onClick={clearPlaybackRange}
+                    className="vv-btn-ghost inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs"
+                    disabled={!playbackRange}
+                  >
+                    <ClipboardX className="h-3.5 w-3.5" />
+                    Clear Range
+                  </button>
+                  <button
+                    onClick={() =>
+                      commitTimeline((state) => ({
+                        ...state,
+                        snapEnabled: !state.snapEnabled,
+                      }))
+                    }
+                    className={`vv-btn-ghost inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs ${
+                      timeline?.snapEnabled ? 'text-accent' : ''
+                    }`}
+                  >
+                    <Magnet className="h-3.5 w-3.5" />
+                    Snap {timeline?.snapEnabled ? 'On' : 'Off'}
+                  </button>
+                </div>
+              </div>
 
-            {clipClipboard && (
+              {clipClipboard && (
+                <p className="text-vv-secondary text-[11px]">
+                  Clipboard ({clipClipboard.mode}):{' '}
+                  <span className="font-mono">{clipClipboard.clip.title}</span>
+                </p>
+              )}
+
               <p className="text-vv-secondary text-[11px]">
-                Clipboard ({clipClipboard.mode}):{' '}
-                <span className="font-mono">{clipClipboard.clip.title}</span>
+                Shortcuts: Space play/pause, Arrow Left/Right nudge, I/O set range, X clear range, M
+                marker, T title, L loop, Ctrl/Cmd+C copy, Ctrl/Cmd+X cut, Ctrl/Cmd+V paste,
+                Delete remove selection, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
               </p>
-            )}
-
-            <p className="text-vv-secondary text-[11px]">
-              Shortcuts: Space play/pause, Arrow Left/Right nudge, I/O set range, X clear range, M
-              marker, T title, L loop, Ctrl/Cmd+C copy, Ctrl/Cmd+X cut, Ctrl/Cmd+V paste,
-              Delete remove selection, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
-            </p>
             </div>
           )}
 
-          {!visibleModules.preview && !visibleModules.timelineControls && (
+          {!showPreviewPanel && !showTransportPanel && (
             <div className="vv-card flex min-h-[160px] items-center justify-center text-sm text-vv-muted">
               Enable `Preview` or `Transport` modules to show editor controls in this theme.
             </div>
@@ -3414,7 +3779,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         )}
       </div>
 
-      {visibleModules.timelineTracks && (
+      {showTimelineTracks && (
         <TimelineTrackCanvas
           timeline={timeline}
           timelineClips={timelineClips}

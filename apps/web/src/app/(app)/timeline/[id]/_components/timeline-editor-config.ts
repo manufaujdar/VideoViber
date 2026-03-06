@@ -6,6 +6,7 @@ import type {
 } from './timeline-editor-types';
 
 export const TIMELINE_THEME_STORAGE_PREFIX = 'videoviber-theme-v2-';
+export const TIMELINE_UI_STORAGE_PREFIX = 'videoviber-timeline-ui-v1-';
 export const CHAT_HISTORY_LIMIT = 180;
 
 export const TIMELINE_MODULE_LABELS: Record<TimelineModuleKey, string> = {
@@ -141,6 +142,10 @@ export const TIMELINE_THEME_BY_ID = Object.fromEntries(
 
 export const AGENT_QUICK_COMMANDS: AgentQuickCommand[] = [
   { label: 'Split selected clip', command: 'split selected clip' },
+  { label: 'Density: Spacious', command: 'density spacious' },
+  { label: 'Layout: Timeline focus', command: 'layout timeline focus' },
+  { label: 'Collapse inspector', command: 'collapse inspector' },
+  { label: 'Expand inspector', command: 'expand inspector' },
   { label: 'Copy clip', command: 'copy selected clip' },
   { label: 'Cut clip', command: 'cut selected clip' },
   { label: 'Paste clip', command: 'paste clip' },

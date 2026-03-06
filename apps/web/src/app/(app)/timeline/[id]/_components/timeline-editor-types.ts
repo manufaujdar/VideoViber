@@ -43,3 +43,17 @@ export interface AgentQuickCommand {
   label: string;
   command: string;
 }
+
+export type TimelineDensityMode = 'compact' | 'balanced' | 'spacious';
+export type TimelineColumnPreset = 'balanced' | 'timeline-focus' | 'inspector-focus';
+
+export interface TimelineUiPreferences {
+  density: TimelineDensityMode;
+  columnPreset: TimelineColumnPreset;
+  previewCollapsed: boolean;
+  transportCollapsed: boolean;
+  tracksCollapsed: boolean;
+  inspectorCollapsed: boolean;
+  agentCollapsed: boolean;
+  dockTransport: boolean;
+}
