@@ -2,12 +2,11 @@
 
 import {
   useMemo,
-  useState,
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from 'react';
-import { CircleDot, Lock, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { Lock, Volume2, VolumeX, CircleDot, Trash2 } from 'lucide-react';
 import type {
   ClipColorClasses,
   MusicBed,
@@ -21,6 +20,16 @@ import type {
   TrackKind,
   TransitionType,
 } from './timeline-editor-domain';
+
+/* ── Track row height (fixed FCP-style) ── */
+const ROW_HEIGHTS: Record<TrackKind, number> = {
+  video: 56,
+  dialogue: 40,
+  music: 40,
+  titles: 32,
+};
+
+const clampPercent = (v: number) => Math.max(0, Math.min(100, v));
 
 interface TimelineTrackCanvasProps {
   timeline: TimelineState | null;
@@ -67,34 +76,8 @@ interface TimelineTrackCanvasProps {
   onClearRange: () => void;
 }
 
-type DensityMode = 'compact' | 'balanced' | 'detailed';
-
-const DENSITY_ROW_HEIGHT: Record<DensityMode, Record<TrackKind, number>> = {
-  compact: {
-    video: 44,
-    dialogue: 32,
-    music: 32,
-    titles: 28,
-  },
-  balanced: {
-    video: 56,
-    dialogue: 40,
-    music: 40,
-    titles: 36,
-  },
-  detailed: {
-    video: 72,
-    dialogue: 52,
-    music: 52,
-    titles: 44,
-  },
-};
-
-const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
-
 export function TimelineTrackCanvas({
   timeline,
-  timelineClips,
   totalDuration,
   formatTime,
   trackRows,
@@ -132,605 +115,496 @@ export function TimelineTrackCanvas({
   showMarkers,
   onRemoveMarker,
   playbackRange,
-  onSetRangeIn,
-  onSetRangeOut,
-  onClearRange,
 }: TimelineTrackCanvasProps) {
-  const [density, setDensity] = useState<DensityMode>('balanced');
-  const [showMiniMap, setShowMiniMap] = useState(true);
-  const [markerQuery, setMarkerQuery] = useState('');
-  const [clipQuery, setClipQuery] = useState('');
-  const [showDisabledClips, setShowDisabledClips] = useState(true);
+  const trackKindRow = useMemo(
+    () => trackRows.reduce<Record<string, TimelineTrackRow>>((map, row) => {
+      map[row.kind] = row;
+      return map;
+    }, {}),
+    [trackRows]
+  );
 
-  const rowHeights = DENSITY_ROW_HEIGHT[density];
-  const hasLayers =
-    timelineClips.length > 0 || (timeline?.musicBeds.length ?? 0) > 0 || (timeline?.titleOverlays.length ?? 0) > 0;
-
-  const filteredMarkers = useMemo(() => {
-    const query = markerQuery.trim().toLowerCase();
-    if (!query) return timeline?.markers ?? [];
-    return (timeline?.markers ?? []).filter((marker) => marker.label.toLowerCase().includes(query));
-  }, [timeline?.markers, markerQuery]);
-
-  const normalizedClipQuery = clipQuery.trim().toLowerCase();
-
-  const filteredSegments = useMemo(() => {
-    return virtualizedSegments.filter((segment) => {
-      if (!showDisabledClips && !segment.clip.enabled) return false;
-      if (!normalizedClipQuery) return true;
-
-      const searchable = `${segment.clip.title} ${segment.clip.prompt} ${segment.clip.provider}`.toLowerCase();
-      return searchable.includes(normalizedClipQuery);
-    });
-  }, [virtualizedSegments, showDisabledClips, normalizedClipQuery]);
-
-  const filteredMusicBeds = useMemo(() => {
-    if (!normalizedClipQuery) return virtualizedMusicBeds;
-    return virtualizedMusicBeds.filter((item) => item.title.toLowerCase().includes(normalizedClipQuery));
-  }, [virtualizedMusicBeds, normalizedClipQuery]);
-
-  const filteredTitleOverlays = useMemo(() => {
-    if (!normalizedClipQuery) return virtualizedTitleOverlays;
-    return virtualizedTitleOverlays.filter((item) => item.text.toLowerCase().includes(normalizedClipQuery));
-  }, [virtualizedTitleOverlays, normalizedClipQuery]);
-  const hasVisibleResults =
-    filteredSegments.length > 0 || filteredMusicBeds.length > 0 || filteredTitleOverlays.length > 0;
-
-  const visibleClipCount = filteredSegments.length;
-  const disabledClipCount = timelineClips.filter((clip) => !clip.enabled).length;
-
+  /* Playback range overlay positions */
   const rangeOverlay = useMemo(() => {
     if (!playbackRange || totalDuration <= 0) return null;
-    const start = (playbackRange.start / totalDuration) * 100;
-    const width = ((playbackRange.end - playbackRange.start) / totalDuration) * 100;
     return {
-      leftPercent: clampPercent(start),
-      widthPercent: clampPercent(width),
-      leftPixels: playbackRange.start * timelinePixelsPerSecond,
-      widthPixels: Math.max(1, (playbackRange.end - playbackRange.start) * timelinePixelsPerSecond),
-      label: `${formatTime(playbackRange.start)} -> ${formatTime(playbackRange.end)}`,
+      leftPercent: clampPercent((playbackRange.start / totalDuration) * 100),
+      widthPercent: clampPercent(
+        ((playbackRange.end - playbackRange.start) / totalDuration) * 100
+      ),
     };
-  }, [playbackRange, totalDuration, timelinePixelsPerSecond, formatTime]);
-
-  const scrollPlayheadIntoView = () => {
-    const viewport = timelineViewportRef.current;
-    if (!viewport) return;
-    const target = Math.max(0, playheadLeft - viewport.clientWidth / 2);
-    viewport.scrollTo({ left: target, behavior: 'smooth' });
-  };
+  }, [playbackRange, totalDuration]);
 
   return (
-    <div className="vv-card shrink-0">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <p className="text-vv-muted text-xs uppercase tracking-wider">Timeline Tracks</p>
-        <p className="text-vv-muted font-mono ml-auto text-xs">
-          {visibleClipCount}/{timelineClips.length} clips · {formatTime(totalDuration)}
-          {disabledClipCount > 0 ? ` · ${disabledClipCount} disabled` : ''}
-        </p>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col border-t border-[#2a2a2a] bg-[#1a1a1a]">
+      {/* Track canvas area */}
+      <div className="flex min-h-0 flex-1">
+        {/* ── Track Headers (fixed left sidebar) ── */}
+        <div className="flex w-[80px] shrink-0 flex-col border-r border-[#2a2a2a] bg-[#161616]">
+          {/* Ruler header spacer */}
+          <div className="h-6 border-b border-[#2a2a2a]" />
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.02] p-1 text-[11px]">
-          {(['compact', 'balanced', 'detailed'] as DensityMode[]).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setDensity(mode)}
-              className={`rounded px-2 py-1 uppercase ${
-                density === mode
-                  ? 'bg-cyan-400/20 text-cyan-100'
-                  : 'text-vv-muted hover:text-vv-primary'
-              }`}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setShowMiniMap((value) => !value)}
-          className={`vv-btn-ghost px-3 py-1.5 text-xs ${showMiniMap ? 'text-accent' : ''}`}
-        >
-          {showMiniMap ? 'Hide Minimap' : 'Show Minimap'}
-        </button>
-        <button onClick={scrollPlayheadIntoView} className="vv-btn-ghost px-3 py-1.5 text-xs">
-          Center Playhead
-        </button>
-        <button
-          onClick={() => setShowDisabledClips((value) => !value)}
-          className={`vv-btn-ghost px-3 py-1.5 text-xs ${showDisabledClips ? 'text-accent' : ''}`}
-        >
-          {showDisabledClips ? 'Hide Disabled Clips' : 'Show Disabled Clips'}
-        </button>
-        <input
-          value={clipQuery}
-          onChange={(event) => setClipQuery(event.target.value)}
-          placeholder="Filter clips, titles, music"
-          className="vv-input ml-auto h-8 max-w-[260px] py-1 text-[11px]"
-        />
-      </div>
+          {trackRows.map((row) => {
+            const trackState = trackStatus.tracks.find((t) => t.kind === row.kind);
+            const isLocked = trackState?.locked ?? false;
+            const isMuted = trackState?.muted ?? false;
+            const isSolo = trackState?.solo ?? false;
+            const height = ROW_HEIGHTS[row.kind];
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button onClick={onSetRangeIn} className="vv-btn-ghost px-3 py-1.5 text-xs">
-          Set In
-        </button>
-        <button onClick={onSetRangeOut} className="vv-btn-ghost px-3 py-1.5 text-xs">
-          Set Out
-        </button>
-        <button onClick={onClearRange} className="vv-btn-ghost px-3 py-1.5 text-xs">
-          Clear Range
-        </button>
-        {rangeOverlay && (
-          <p className="text-vv-muted text-xs">
-            Playback Range: <span className="font-mono">{rangeOverlay.label}</span>
-          </p>
-        )}
-      </div>
-
-      {showMiniMap && hasLayers && (
-        <div
-          className="border-vv-border/60 bg-vv-base/50 relative mb-3 h-8 cursor-pointer rounded-md border"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
-            seekToTime(Math.max(0, Math.min(totalDuration, ratio * totalDuration)));
-          }}
-        >
-          {filteredSegments.map((segment) => {
-            const left = totalDuration > 0 ? (segment.start / totalDuration) * 100 : 0;
-            const width = totalDuration > 0 ? (segment.duration / totalDuration) * 100 : 0;
-            const color = clipColorClasses[segment.clip.color];
             return (
               <div
-                key={`mini-${segment.clip.id}`}
-                className={`${color.accent} absolute bottom-1 top-1 rounded ${
-                  segment.clip.enabled ? 'opacity-70' : 'opacity-35'
-                }`}
-                style={{ left: `${left}%`, width: `${Math.max(width, 0.25)}%` }}
-                title={`${segment.clip.title} · ${formatTime(segment.duration)}`}
-              />
-            );
-          })}
-          {rangeOverlay && (
-            <div
-              className="pointer-events-none absolute inset-y-0 border-x border-cyan-300/80 bg-cyan-300/10"
-              style={{ left: `${rangeOverlay.leftPercent}%`, width: `${rangeOverlay.widthPercent}%` }}
-              title={rangeOverlay.label}
-            />
-          )}
-          <div
-            className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-200"
-            style={{ left: `${totalDuration > 0 ? (playheadLeft / (trackWidth || 1)) * 100 : 0}%` }}
-          />
-        </div>
-      )}
-
-      {hasLayers ? (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[170px_minmax(0,1fr)] gap-3">
-            <div className="space-y-2">
-              <div className="text-vv-muted h-7 px-2 text-[10px] font-semibold uppercase tracking-wider">
-                Track
-              </div>
-              {trackRows.map((row) => {
-                const track = trackStatus.byKind[row.kind];
-                const disabledBySolo = trackStatus.hasSolo && !track.solo;
-                return (
-                  <div
-                    key={row.kind}
-                    className="rounded-md border border-white/10 bg-white/[0.02] px-2 py-2"
-                    style={{ height: `${rowHeights[row.kind]}px` }}
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold">{row.short}</span>
-                      <span className="text-vv-muted">{track.name}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                key={row.kind}
+                className="flex items-center border-b border-[#2a2a2a] px-1.5"
+                style={{ height }}
+              >
+                <div className="flex flex-1 flex-col items-start gap-0.5">
+                  <span className="text-[11px] font-semibold text-[#e5e5e5]">{row.short}</span>
+                  <div className="flex gap-0.5">
                     <button
                       onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          locked: !item.locked,
+                        updateTrack(row.kind, (t) => ({
+                          ...t,
+                          muted: !t.muted,
                         }))
                       }
-                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
-                        track.locked ? 'bg-amber-400/20 text-amber-100' : 'bg-white/[0.04] text-vv-muted'
+                      className={`rounded p-0.5 ${
+                        isMuted
+                          ? 'text-[#ff6961] bg-[#ff3b30]/10'
+                          : 'text-[#666] hover:text-[#b0b0b0]'
                       }`}
-                      title={track.locked ? 'Unlock track' : 'Lock track'}
-                      aria-label={track.locked ? `Unlock ${row.short} track` : `Lock ${row.short} track`}
+                      title={isMuted ? 'Unmute track' : 'Mute track'}
+                    >
+                      {isMuted ? (
+                        <VolumeX className="h-3 w-3" />
+                      ) : (
+                        <Volume2 className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() =>
+                        updateTrack(row.kind, (t) => ({
+                          ...t,
+                          solo: !t.solo,
+                        }))
+                      }
+                      className={`rounded px-1 text-[8px] font-bold ${
+                        isSolo
+                          ? 'text-[#ffd60a] bg-[#ffd60a]/10'
+                          : 'text-[#666] hover:text-[#b0b0b0]'
+                      }`}
+                      title={isSolo ? 'Unsolo track' : 'Solo track'}
+                    >
+                      S
+                    </button>
+                    <button
+                      onClick={() =>
+                        updateTrack(row.kind, (t) => ({
+                          ...t,
+                          locked: !t.locked,
+                        }))
+                      }
+                      className={`rounded p-0.5 ${
+                        isLocked
+                          ? 'text-[#ff9f0a] bg-[#ff9f0a]/10'
+                          : 'text-[#666] hover:text-[#b0b0b0]'
+                      }`}
+                      title={isLocked ? 'Unlock track' : 'Lock track'}
                     >
                       <Lock className="h-3 w-3" />
-                      <span className="font-semibold">L</span>
                     </button>
-                    <button
-                      onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          muted: !item.muted,
-                        }))
-                      }
-                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
-                        track.muted ? 'bg-rose-400/20 text-rose-100' : 'bg-white/[0.04] text-vv-muted'
-                      }`}
-                      title={track.muted ? 'Unmute track' : 'Mute track'}
-                      aria-label={track.muted ? `Unmute ${row.short} track` : `Mute ${row.short} track`}
-                    >
-                      {track.muted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-                      <span className="font-semibold">M</span>
-                    </button>
-                    <button
-                      onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          solo: !item.solo,
-                        }))
-                      }
-                      className={`inline-flex h-6 min-w-10 items-center justify-center gap-1 rounded px-2 py-1 ${
-                        track.solo ? 'bg-cyan-400/20 text-cyan-100' : 'bg-white/[0.04] text-vv-muted'
-                      }`}
-                      title={track.solo ? 'Disable solo' : 'Enable solo'}
-                      aria-label={track.solo ? `Disable solo on ${row.short} track` : `Enable solo on ${row.short} track`}
-                    >
-                      <CircleDot className="h-3 w-3" />
-                      <span className="font-semibold">S</span>
-                    </button>
-                      {disabledBySolo && <span className="text-vv-disabled ml-auto">Excluded</span>}
-                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Scrollable Timeline Area ── */}
+        <div
+          ref={timelineViewportRef}
+          className="relative flex-1 overflow-x-auto overflow-y-hidden"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              onClearSelections();
+              onStopPlayback();
+            }
+          }}
+        >
+          <div
+            className="relative"
+            style={{ width: Math.max(trackWidth, 200), minHeight: '100%' }}
+          >
+            {/* ── Ruler ── */}
+            <div
+              className="sticky top-0 z-30 h-6 border-b border-[#2a2a2a] bg-[#161616]"
+              onMouseDown={(e) => seekFromEvent(e)}
+            >
+              {rulerTicks.map((tick) => {
+                if (totalDuration <= 0) return null;
+                const left = clampPercent((tick / totalDuration) * 100);
+                return (
+                  <div
+                    key={tick}
+                    className="absolute top-0 flex h-full flex-col items-center"
+                    style={{ left: `${left}%` }}
+                  >
+                    <div className="h-2 w-px bg-[#444]" />
+                    <span className="mt-px text-[8px] font-mono text-[#666]">
+                      {formatTime(tick)}
+                    </span>
                   </div>
                 );
               })}
+
+              {/* Range overlay on ruler */}
+              {rangeOverlay && (
+                <div
+                  className="absolute bottom-0 h-1.5 bg-[#ffd60a]/40"
+                  style={{
+                    left: `${rangeOverlay.leftPercent}%`,
+                    width: `${rangeOverlay.widthPercent}%`,
+                  }}
+                />
+              )}
             </div>
 
-            <div ref={timelineViewportRef} className="overflow-x-auto">
-              <div style={{ width: `${trackWidth}px` }} className="relative min-w-full">
+            {/* ── Markers ── */}
+            {showMarkers &&
+              timeline?.markers.map((marker) => {
+                if (totalDuration <= 0) return null;
+                const left = clampPercent((marker.time / totalDuration) * 100);
+                return (
+                  <div
+                    key={marker.id}
+                    className="group absolute z-20"
+                    style={{ left: `${left}%`, top: 0 }}
+                  >
+                    <button
+                      onClick={() => onMarkerSelect(marker.time)}
+                      className="relative -translate-x-1/2"
+                      title={`${marker.label} (${formatTime(marker.time)})`}
+                    >
+                      <div
+                        className="h-3 w-1.5 rounded-b-sm"
+                        style={{ backgroundColor: marker.color }}
+                      />
+                    </button>
+                    <button
+                      onClick={() => onRemoveMarker(marker.id)}
+                      className="absolute -right-4 -top-1 hidden rounded bg-[#ff3b30]/80 p-0.5 group-hover:block"
+                      title="Remove marker"
+                    >
+                      <Trash2 className="h-2 w-2 text-white" />
+                    </button>
+                  </div>
+                );
+              })}
+
+            {/* ── Track Rows ── */}
+            <div
+              onDragOver={onTrackDragOver}
+              onDrop={onTrackDrop}
+              onDragLeave={onTrackDragLeave}
+            >
+              {/* Video track (V1) */}
               <div
-                className="border-vv-border/60 bg-vv-base/40 relative mb-2 h-7 cursor-pointer rounded-md border"
-                onClick={seekFromEvent}
+                className="relative border-b border-[#252525] bg-[#1c1c1c]"
+                style={{ height: ROW_HEIGHTS.video }}
               >
+                {/* Range overlay */}
                 {rangeOverlay && (
                   <div
-                    className="pointer-events-none absolute inset-y-0 border-x border-cyan-300/80 bg-cyan-300/10"
+                    className="pointer-events-none absolute inset-y-0 bg-[#ffd60a]/[0.04]"
                     style={{
                       left: `${rangeOverlay.leftPercent}%`,
                       width: `${rangeOverlay.widthPercent}%`,
                     }}
                   />
                 )}
-                {rulerTicks.map((tick) => {
-                  const left = totalDuration > 0 ? (tick / totalDuration) * 100 : 0;
+
+                {virtualizedSegments.map((segment) => {
+                  if (totalDuration <= 0) return null;
+                  const leftPercent = clampPercent((segment.start / totalDuration) * 100);
+                  const widthPercent = clampPercent((segment.duration / totalDuration) * 100);
+                  const isSelected = selectedClipId === segment.clip.id;
+                  const isDisabled = !segment.clip.enabled;
+                  const colorClasses = clipColorClasses[segment.clip.color] ?? clipColorClasses.cyan;
+                  const transLabel = getTransitionLabel(
+                    segment.clip.transitionType,
+                    segment.clip.transitionDuration
+                  );
+
+                  /* Waveform */
+                  const barCount = Math.max(
+                    8,
+                    Math.round((segment.duration * timelinePixelsPerSecond) / 4)
+                  );
+                  const waveformBars = timeline?.showWaveforms
+                    ? getWaveformBars(segment, barCount)
+                    : null;
+
                   return (
-                    <div key={tick} className="absolute inset-y-0" style={{ left: `${left}%` }}>
-                      <div className="bg-vv-border/70 h-2 w-px" />
-                      <span className="text-vv-muted absolute top-2 text-[10px] font-mono">
-                        {formatTime(tick)}
-                      </span>
+                    <button
+                      key={segment.clip.id}
+                      onClick={() => onSelectClip(segment.clip.id, segment.start)}
+                      draggable={!videoTrackLocked}
+                      onDragStart={(e) => onClipDragStart(e, segment.clip.id)}
+                      onDragEnd={onClipDragEnd}
+                      className={`group absolute inset-y-0.5 overflow-hidden rounded-sm border transition-all ${
+                        isSelected
+                          ? 'z-10 border-[#0a84ff] ring-1 ring-[#0a84ff]/40'
+                          : 'border-transparent hover:border-[#555]'
+                      } ${isDisabled ? 'opacity-40' : ''} ${colorClasses.bg}`}
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        minWidth: 2,
+                      }}
+                      title={`${segment.clip.title} (${formatTime(segment.duration)})`}
+                    >
+                      {/* Filmstrip thumbnail */}
+                      {segment.clip.thumbnailUrl && (
+                        <div className="absolute inset-0 opacity-30">
+                          <img
+                            src={segment.clip.thumbnailUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+
+                      {/* Text label */}
+                      <div className="relative flex h-full items-end px-1 pb-0.5">
+                        <span className="truncate text-[9px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                          {segment.clip.title}
+                        </span>
+                      </div>
+
+                      {/* Waveform overlay */}
+                      {waveformBars && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-3 items-end overflow-hidden px-px">
+                          {waveformBars.map((bar, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 bg-white/20"
+                              style={{ height: `${Math.round(bar * 100)}%`, minHeight: 1 }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Transition label */}
+                      {transLabel && (
+                        <div className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 py-px text-[7px] text-white/70">
+                          {transLabel}
+                        </div>
+                      )}
+
+                      {/* Speed indicator */}
+                      {segment.clip.playbackRate !== 1 && (
+                        <div className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 py-px text-[7px] text-[#0a84ff]">
+                          {segment.clip.playbackRate.toFixed(1)}x
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Dialogue track (A1) */}
+              <div
+                className="relative border-b border-[#252525] bg-[#1a1a1a]"
+                style={{ height: ROW_HEIGHTS.dialogue }}
+              >
+                {rangeOverlay && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 bg-[#ffd60a]/[0.03]"
+                    style={{
+                      left: `${rangeOverlay.leftPercent}%`,
+                      width: `${rangeOverlay.widthPercent}%`,
+                    }}
+                  />
+                )}
+
+                {/* Shadow audio blocks from video clips */}
+                {virtualizedSegments.map((segment) => {
+                  if (totalDuration <= 0) return null;
+                  const leftPercent = clampPercent((segment.start / totalDuration) * 100);
+                  const widthPercent = clampPercent((segment.duration / totalDuration) * 100);
+                  const isDisabled = !segment.clip.enabled || segment.clip.muted;
+
+                  const barCount = Math.max(
+                    8,
+                    Math.round((segment.duration * timelinePixelsPerSecond) / 4)
+                  );
+                  const waveformBars = timeline?.showWaveforms
+                    ? getWaveformBars(segment, barCount)
+                    : null;
+
+                  return (
+                    <div
+                      key={`audio-${segment.clip.id}`}
+                      className={`absolute inset-y-0.5 overflow-hidden rounded-sm bg-[#5e5ce6]/30 border border-[#5e5ce6]/20 ${
+                        isDisabled ? 'opacity-30' : ''
+                      }`}
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        minWidth: 2,
+                      }}
+                    >
+                      {waveformBars && (
+                        <div className="flex h-full items-center overflow-hidden px-px">
+                          {waveformBars.map((bar, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 bg-[#5e5ce6]/50"
+                              style={{
+                                height: `${Math.round(bar * 80)}%`,
+                                minHeight: 1,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {!waveformBars && (
+                        <div className="flex h-full items-center px-1">
+                          <span className="truncate text-[8px] text-[#5e5ce6]/60">
+                            {segment.clip.title}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+              </div>
 
-                {(showMarkers ? timeline?.markers ?? [] : []).map((marker) => {
-                  const left = totalDuration > 0 ? (marker.time / totalDuration) * 100 : 0;
+              {/* Music track (A2) */}
+              <div
+                className="relative border-b border-[#252525] bg-[#1c1c1c]"
+                style={{ height: ROW_HEIGHTS.music }}
+              >
+                {rangeOverlay && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 bg-[#ffd60a]/[0.03]"
+                    style={{
+                      left: `${rangeOverlay.leftPercent}%`,
+                      width: `${rangeOverlay.widthPercent}%`,
+                    }}
+                  />
+                )}
+
+                {virtualizedMusicBeds.map((bed) => {
+                  if (totalDuration <= 0) return null;
+                  const leftPercent = clampPercent((bed.start / totalDuration) * 100);
+                  const widthPercent = clampPercent((bed.duration / totalDuration) * 100);
+                  const isSelected = selectedMusicId === bed.id;
+
                   return (
                     <button
-                      key={marker.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onMarkerSelect(marker.time);
+                      key={bed.id}
+                      onClick={() => onSelectMusicBed(bed.id, bed.start)}
+                      className={`absolute inset-y-0.5 overflow-hidden rounded-sm border transition-all ${
+                        isSelected
+                          ? 'z-10 border-[#30d158] ring-1 ring-[#30d158]/40'
+                          : 'border-transparent hover:border-[#30d158]/50'
+                      } bg-[#30d158]/20 ${bed.muted ? 'opacity-30' : ''}`}
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        minWidth: 2,
                       }}
-                      className="absolute top-0 h-full w-2 -translate-x-1 rounded-sm"
-                      style={{ left: `${left}%`, backgroundColor: marker.color }}
-                      title={`${marker.label} · ${formatTime(marker.time)}`}
-                    />
+                      title={`${bed.title} (${formatTime(bed.duration)})`}
+                    >
+                      <div className="flex h-full items-center px-1">
+                        <span className="truncate text-[8px] font-medium text-[#30d158]">
+                          ♪ {bed.title}
+                        </span>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
 
-              <div className="relative space-y-2">
-                <div
-                  className="pointer-events-none absolute top-0 z-20 h-full w-px bg-accent shadow-[0_0_10px_rgba(82,222,255,0.8)]"
-                  style={{ left: `${playheadLeft}px` }}
-                >
-                  <div className="bg-accent absolute -left-1.5 -top-1 h-3 w-3 rounded-full" />
-                </div>
-
-                <div
-                  className="rounded-md border border-white/10 bg-white/[0.02] p-1"
-                  style={{ height: `${rowHeights.video}px` }}
-                  onClick={seekFromEvent}
-                  onDragOver={onTrackDragOver}
-                  onDrop={onTrackDrop}
-                  onDragLeave={onTrackDragLeave}
-                >
-                  <div className="relative h-full">
-                    {rangeOverlay && (
-                      <div
-                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
-                        style={{
-                          left: `${rangeOverlay.leftPixels}px`,
-                          width: `${rangeOverlay.widthPixels}px`,
-                        }}
-                      />
-                    )}
-
-                    {filteredSegments.map((segment) => {
-                      const clip = segment.clip;
-                      const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
-                      const styles = clipColorClasses[clip.color];
-                      const left = segment.start * timelinePixelsPerSecond;
-                      const clipEnabled = clip.enabled;
-
-                      return (
-                        <button
-                          key={clip.id}
-                          draggable={!videoTrackLocked}
-                          onDragStart={(event) => onClipDragStart(event, clip.id)}
-                          onDragEnd={onClipDragEnd}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onSelectClip(clip.id, segment.start);
-                            onStopPlayback();
-                          }}
-                          className={`group absolute top-0 flex h-full items-center justify-between rounded-md border px-2 text-left text-xs transition-all ${
-                            clip.id === selectedClipId ? styles.active : styles.idle
-                          } ${videoTrackLocked ? 'cursor-not-allowed opacity-75' : ''} ${
-                            clipEnabled ? '' : 'opacity-45 grayscale'
-                          }`}
-                          style={{ left: `${left}px`, width: `${width}px` }}
-                          title={`${clip.title} · ${formatTime(segment.duration)}`}
-                        >
-                          <span className="truncate pr-2 font-semibold">{clip.title}</span>
-                          <span className="text-[10px] font-mono opacity-85">{formatTime(segment.duration)}</span>
-
-                          {!clipEnabled && (
-                            <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/85">
-                              Disabled
-                            </span>
-                          )}
-
-                          {clip.transitionType !== 'cut' && (
-                            <span className="absolute -right-1 -top-2 rounded bg-black/70 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/90">
-                              {getTransitionLabel(clip.transitionType, clip.transitionDuration)}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {dragIndicatorTime !== null && (
-                      <div
-                        className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-300/90 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
-                        style={{ left: `${dragIndicatorTime * timelinePixelsPerSecond}px` }}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-md border border-white/10 bg-white/[0.02] p-1"
-                  style={{ height: `${rowHeights.dialogue}px` }}
-                  onClick={seekFromEvent}
-                >
-                  <div className="relative h-full">
-                    {rangeOverlay && (
-                      <div
-                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
-                        style={{
-                          left: `${rangeOverlay.leftPixels}px`,
-                          width: `${rangeOverlay.widthPixels}px`,
-                        }}
-                      />
-                    )}
-
-                    {filteredSegments.map((segment) => {
-                      const clip = segment.clip;
-                      const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
-                      const styles = clipColorClasses[clip.color];
-                      const left = segment.start * timelinePixelsPerSecond;
-
-                      const effectiveVolume =
-                        timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted || !clip.enabled
-                          ? 0
-                          : (clip.audioVolume * (timeline?.masterVolume ?? 100)) / 100;
-
-                      const waveformOpacity = timeline?.showWaveforms
-                        ? Math.min(0.95, Math.max(0.15, effectiveVolume / 140))
-                        : 0.18;
-
-                      const barCount = Math.min(140, Math.max(24, Math.round(width / 4)));
-                      const bars = timeline?.showWaveforms ? getWaveformBars(segment, barCount) : null;
-
-                      return (
-                        <button
-                          key={`${clip.id}-audio`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onSelectClip(clip.id, segment.start);
-                          }}
-                          className={`absolute top-0 h-full rounded-md border px-2 text-[10px] transition-all ${
-                            clip.id === selectedClipId ? styles.active : styles.idle
-                          } ${clip.enabled ? '' : 'opacity-40 grayscale'}`}
-                          style={{ left: `${left}px`, width: `${width}px` }}
-                          title={`${clip.title} audio · ${Math.round(effectiveVolume)}%`}
-                        >
-                          {timeline?.showWaveforms && bars ? (
-                            <div
-                              className="absolute inset-y-1 left-2 right-2 flex items-center gap-[1px] overflow-hidden"
-                              style={{ opacity: waveformOpacity }}
-                            >
-                              {bars.map((amplitude, index) => (
-                                <span
-                                  key={`${clip.id}-${index}`}
-                                  className="w-[2px] flex-1 rounded-sm bg-white/80"
-                                  style={{ height: `${Math.max(6, amplitude * 100)}%` }}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <div
-                              className="absolute inset-y-1 left-2 right-2 rounded"
-                              style={{
-                                opacity: waveformOpacity,
-                                background:
-                                  'repeating-linear-gradient(90deg, rgba(255,255,255,0.65) 0px, rgba(255,255,255,0.65) 2px, transparent 2px, transparent 6px)',
-                              }}
-                            />
-                          )}
-                          <span className="relative z-10 font-mono">
-                            {timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted || !clip.enabled
-                              ? 'Muted'
-                              : `${Math.round(effectiveVolume)}%`}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-md border border-white/10 bg-white/[0.02] p-1"
-                  style={{ height: `${rowHeights.music}px` }}
-                  onClick={seekFromEvent}
-                >
-                  <div className="relative h-full">
-                    {rangeOverlay && (
-                      <div
-                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
-                        style={{
-                          left: `${rangeOverlay.leftPixels}px`,
-                          width: `${rangeOverlay.widthPixels}px`,
-                        }}
-                      />
-                    )}
-
-                    {filteredMusicBeds.map((item) => {
-                      const width = Math.max(item.duration * timelinePixelsPerSecond, 50);
-                      const left = item.start * timelinePixelsPerSecond;
-                      const styles = clipColorClasses[item.color];
-                      const isSelected = item.id === selectedMusicId;
-                      const muted = item.muted || !trackStatus.musicAudible;
-
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onSelectMusicBed(item.id, item.start);
-                          }}
-                          className={`absolute top-0 h-full rounded-md border px-2 text-left text-[10px] ${
-                            isSelected ? styles.active : styles.idle
-                          }`}
-                          style={{ left: `${left}px`, width: `${width}px` }}
-                          title={`${item.title} · ${formatTime(item.duration)}`}
-                        >
-                          <span className="truncate font-semibold">{item.title}</span>
-                          <span className="ml-2 font-mono">{muted ? 'Muted' : `${item.volume}%`}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-md border border-white/10 bg-white/[0.02] p-1"
-                  style={{ height: `${rowHeights.titles}px` }}
-                  onClick={seekFromEvent}
-                >
-                  <div className="relative h-full">
-                    {rangeOverlay && (
-                      <div
-                        className="pointer-events-none absolute inset-y-0 z-10 border-x border-cyan-300/70 bg-cyan-300/10"
-                        style={{
-                          left: `${rangeOverlay.leftPixels}px`,
-                          width: `${rangeOverlay.widthPixels}px`,
-                        }}
-                      />
-                    )}
-
-                    {filteredTitleOverlays.map((item) => {
-                      const width = Math.max(item.duration * timelinePixelsPerSecond, 52);
-                      const left = item.start * timelinePixelsPerSecond;
-                      const isSelected = item.id === selectedTitleId;
-
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onSelectTitle(item.id, item.start);
-                          }}
-                          className={`absolute top-0 h-full rounded border px-2 text-left text-[10px] ${
-                            isSelected
-                              ? 'border-fuchsia-200 bg-fuchsia-300/20 text-fuchsia-100'
-                              : 'border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-100'
-                          }`}
-                          style={{ left: `${left}px`, width: `${width}px` }}
-                          title={`${item.text} · ${formatTime(item.duration)}`}
-                        >
-                          <span className="truncate">{item.text}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              </div>
-            </div>
-          </div>
-
-          {normalizedClipQuery && !hasVisibleResults && (
-            <div className="rounded-md border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-vv-muted">
-              No clips, music beds, or titles match this filter.
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="border-vv-border bg-vv-base/30 flex h-24 items-center justify-center rounded-lg border-2 border-dashed">
-          <p className="text-vv-muted text-sm">No timeline layers available yet.</p>
-        </div>
-      )}
-
-      {showMarkers && (timeline?.markers.length ?? 0) > 0 && (
-        <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-vv-muted text-[11px] uppercase tracking-wider">Markers</p>
-            <input
-              value={markerQuery}
-              onChange={(event) => setMarkerQuery(event.target.value)}
-              placeholder="Filter markers"
-              className="vv-input ml-auto h-8 max-w-[220px] py-1 text-[11px]"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {filteredMarkers.map((marker) => (
+              {/* Titles track (T1) */}
               <div
-                key={marker.id}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-xs"
+                className="relative border-b border-[#252525] bg-[#1a1a1a]"
+                style={{ height: ROW_HEIGHTS.titles }}
               >
-                <button
-                  onClick={() => {
-                    onMarkerSelect(marker.time);
-                    onClearSelections();
-                  }}
-                  className="inline-flex items-center gap-1"
-                  title="Jump to marker"
-                >
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: marker.color }} />
-                  <span>{marker.label}</span>
-                  <span className="text-vv-muted font-mono">{formatTime(marker.time)}</span>
-                </button>
-                <button
-                  onClick={() => onRemoveMarker(marker.id)}
-                  className="text-vv-muted hover:text-vv-primary inline-flex items-center px-1"
-                  title="Delete marker"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                {rangeOverlay && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 bg-[#ffd60a]/[0.03]"
+                    style={{
+                      left: `${rangeOverlay.leftPercent}%`,
+                      width: `${rangeOverlay.widthPercent}%`,
+                    }}
+                  />
+                )}
+
+                {virtualizedTitleOverlays.map((title) => {
+                  if (totalDuration <= 0) return null;
+                  const leftPercent = clampPercent((title.start / totalDuration) * 100);
+                  const widthPercent = clampPercent((title.duration / totalDuration) * 100);
+                  const isSelected = selectedTitleId === title.id;
+
+                  return (
+                    <button
+                      key={title.id}
+                      onClick={() => onSelectTitle(title.id, title.start)}
+                      className={`absolute inset-y-0.5 overflow-hidden rounded-sm border transition-all ${
+                        isSelected
+                          ? 'z-10 border-[#bf5af2] ring-1 ring-[#bf5af2]/40'
+                          : 'border-transparent hover:border-[#bf5af2]/50'
+                      } bg-[#bf5af2]/20 ${!title.enabled ? 'opacity-30' : ''}`}
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        minWidth: 2,
+                      }}
+                      title={`${title.text} (${formatTime(title.duration)})`}
+                    >
+                      <div className="flex h-full items-center px-1">
+                        <span className="truncate text-[8px] font-medium" style={{ color: title.color }}>
+                          T {title.text}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-            {filteredMarkers.length === 0 && (
-              <p className="text-vv-muted text-xs">No markers match this filter.</p>
+            </div>
+
+            {/* ── Playhead ── */}
+            <div
+              className="pointer-events-none absolute top-0 z-40"
+              style={{ left: playheadLeft, transform: 'translateX(-50%)' }}
+            >
+              {/* Playhead head (triangle) */}
+              <div className="flex justify-center">
+                <div
+                  className="h-0 w-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-[#ff3b30]"
+                />
+              </div>
+              {/* Playhead line */}
+              <div className="mx-auto h-[500px] w-px bg-[#ff3b30] shadow-[0_0_4px_rgba(255,59,48,0.5)]" />
+            </div>
+
+            {/* ── Drag indicator ── */}
+            {dragIndicatorTime !== null && totalDuration > 0 && (
+              <div
+                className="pointer-events-none absolute top-0 z-30"
+                style={{
+                  left: `${clampPercent((dragIndicatorTime / totalDuration) * 100)}%`,
+                  transform: 'translateX(-50%)',
+                }}
+              >
+                <div className="mx-auto h-full w-px bg-[#0a84ff] shadow-[0_0_6px_rgba(10,132,255,0.6)]" />
+              </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

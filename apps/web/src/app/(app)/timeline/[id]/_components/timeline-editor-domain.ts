@@ -121,5 +121,6 @@ export type ClipColorClasses = Record<
     idle: string;
     active: string;
     accent: string;
+    bg: string;
   }
 >;
