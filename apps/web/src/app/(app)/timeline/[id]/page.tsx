@@ -1533,14 +1533,26 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
   const deleteCurrentSelection = useCallback(() => {
     if (selectedClipId) {
+      if (trackStatus.byKind.video.locked) {
+        toast.error('Video track is locked.');
+        return false;
+      }
       deleteSelectedClip();
       return true;
     }
     if (selectedMusicId) {
+      if (trackStatus.byKind.music.locked) {
+        toast.error('Music track is locked.');
+        return false;
+      }
       removeSelectedMusicBed();
       return true;
     }
     if (selectedTitleId) {
+      if (trackStatus.byKind.titles.locked) {
+        toast.error('Title track is locked.');
+        return false;
+      }
       removeSelectedTitle();
       return true;
     }
@@ -1549,6 +1561,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     selectedClipId,
     selectedMusicId,
     selectedTitleId,
+    trackStatus.byKind.music.locked,
+    trackStatus.byKind.titles.locked,
+    trackStatus.byKind.video.locked,
     deleteSelectedClip,
     removeSelectedMusicBed,
     removeSelectedTitle,
@@ -1648,7 +1663,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
 
       const perform = (
         label: string,
-        action: () => void,
+        action: () => boolean | void,
         options?: { destructive?: boolean; previewLabel?: string }
       ) => {
         if (options?.destructive && agentSafeMode && !isConfirming) {
@@ -1664,7 +1679,11 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           return;
         }
 
-        action();
+        const result = action();
+        if (result === false) {
+          respond('Command could not be applied in the current timeline state.');
+          return;
+        }
         respond(label);
       };
 
@@ -1717,9 +1736,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           respond('Select a clip first, then ask me to copy it.');
           return;
         }
-        perform('Copied selected clip to clipboard.', () => {
-          copySelectedClipToClipboard();
-        });
+        perform('Copied selected clip to clipboard.', copySelectedClipToClipboard);
         return;
       }
 
@@ -1728,9 +1745,9 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           respond('Select a clip first, then ask me to cut it.');
           return;
         }
-        perform('Cut selected clip to clipboard.', () => {
-          cutSelectedClipToClipboard();
-        }, { destructive: true });
+        perform('Cut selected clip to clipboard.', cutSelectedClipToClipboard, {
+          destructive: true,
+        });
         return;
       }
 
@@ -1739,9 +1756,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           respond('Clipboard is empty. Copy or cut a clip first.');
           return;
         }
-        perform('Pasted clip from clipboard.', () => {
-          pasteClipFromClipboard();
-        });
+        perform('Pasted clip from clipboard.', pasteClipFromClipboard);
         return;
       }
 
@@ -1753,7 +1768,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           respond('No timeline item is selected to delete.');
           return;
         }
-        perform('Removed selected timeline item.', () => deleteCurrentSelection(), {
+        perform('Removed selected timeline item.', deleteCurrentSelection, {
           destructive: true,
         });
         return;
@@ -2961,7 +2976,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight">{project.title} - Timeline</h1>
-            <p className="text-vv-muted text-xs">
+            <p className="text-vv-secondary text-xs">
               {timelineClips.length} clips · {timeline?.musicBeds.length ?? 0} music ·{' '}
               {timeline?.titleOverlays.length ?? 0} titles · {formatTime(totalDuration)} total
               {disabledClipCount > 0 ? ` · ${disabledClipCount} disabled` : ''}
@@ -3198,7 +3213,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                 <ArrowRight className="h-3.5 w-3.5" />
                 {playbackRange ? 'Out' : 'End'}
               </button>
-              <div className="text-vv-muted ml-2 font-mono text-xs">
+              <div className="text-vv-secondary ml-2 font-mono text-xs">
                 {formatTime(currentTime)}
                 {playbackRange ? ` (${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)})` : ''}
               </div>
@@ -3321,13 +3336,13 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             </div>
 
             {clipClipboard && (
-              <p className="text-vv-muted text-[11px]">
+              <p className="text-vv-secondary text-[11px]">
                 Clipboard ({clipClipboard.mode}):{' '}
                 <span className="font-mono">{clipClipboard.clip.title}</span>
               </p>
             )}
 
-            <p className="text-vv-muted text-[11px]">
+            <p className="text-vv-secondary text-[11px]">
               Shortcuts: Space play/pause, Arrow Left/Right nudge, I/O set range, X clear range, M
               marker, T title, L loop, Ctrl/Cmd+C copy, Ctrl/Cmd+X cut, Ctrl/Cmd+V paste,
               Delete remove selection, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
