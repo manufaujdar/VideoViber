@@ -53,6 +53,9 @@ importers:
       '@videoviber/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@videoviber/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@videoviber/types':
         specifier: workspace:*
         version: link:../../packages/types

@@ -13,98 +13,41 @@ import {
 import { useAppStore, type Shot } from '@/app/store';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
-
-type TransitionType = 'cut' | 'dissolve' | 'fade' | 'wipe';
-type ClipColor = 'cyan' | 'amber' | 'rose' | 'emerald' | 'slate';
-type TrackKind = 'video' | 'dialogue' | 'music' | 'titles';
-type TitleStyle = 'title' | 'lower-third' | 'caption';
-
-interface TimelineClip {
-  id: string;
-  shotId: string;
-  title: string;
-  prompt: string;
-  provider: string;
-  sourceDuration: number;
-  trimStart: number;
-  trimEnd: number;
-  playbackRate: number;
-  transitionType: TransitionType;
-  transitionDuration: number;
-  audioVolume: number;
-  muted: boolean;
-  color: ClipColor;
-  thumbnailUrl: string | null;
-  videoUrl: string | null;
-  status: Shot['status'];
-}
-
-interface TimelineMarker {
-  id: string;
-  time: number;
-  label: string;
-  color: string;
-}
-
-interface TimelineTrack {
-  id: string;
-  kind: TrackKind;
-  name: string;
-  locked: boolean;
-  muted: boolean;
-  solo: boolean;
-}
-
-interface MusicBed {
-  id: string;
-  title: string;
-  start: number;
-  duration: number;
-  volume: number;
-  muted: boolean;
-  loop: boolean;
-  color: ClipColor;
-}
-
-interface TitleOverlay {
-  id: string;
-  text: string;
-  start: number;
-  duration: number;
-  style: TitleStyle;
-  color: string;
-  enabled: boolean;
-}
-
-interface TimelineState {
-  clips: TimelineClip[];
-  markers: TimelineMarker[];
-  tracks: TimelineTrack[];
-  musicBeds: MusicBed[];
-  titleOverlays: TitleOverlay[];
-  snapEnabled: boolean;
-  showWaveforms: boolean;
-  masterVolume: number;
-  masterMuted: boolean;
-}
-
-interface HistoryState {
-  entries: TimelineState[];
-  index: number;
-}
-
-interface TimelineSegment {
-  clip: TimelineClip;
-  start: number;
-  end: number;
-  duration: number;
-}
-
-interface DragState {
-  sourceId: string;
-  targetId: string | null;
-  position: 'before' | 'after' | 'end';
-}
+import { AgentChatBar } from './_components/agent-chat-bar';
+import { AgentSidebar } from './_components/agent-sidebar';
+import { TimelineInspectorPanel } from './_components/timeline-inspector-panel';
+import { TimelineTrackCanvas } from './_components/timeline-track-canvas';
+import {
+  AGENT_QUICK_COMMANDS,
+  CHAT_HISTORY_LIMIT,
+  TIMELINE_MODULE_LABELS,
+  TIMELINE_THEME_BY_ID,
+  TIMELINE_THEME_PRESETS,
+  TIMELINE_THEME_STORAGE_PREFIX,
+} from './_components/timeline-editor-config';
+import type {
+  AgentMessage,
+  TimelineModuleFlags,
+  TimelineModuleKey,
+  TimelineThemeId,
+  TimelineThemeStoragePayload,
+} from './_components/timeline-editor-types';
+import { ThemeLayoutPanel } from './_components/theme-layout-panel';
+import {
+  type ClipColor,
+  type DragState,
+  type HistoryState,
+  type MusicBed,
+  type TimelineClip,
+  type TimelineSegment,
+  type TimelineState,
+  type TimelineTrack,
+  type TimelineViewportState,
+  type TitleOverlay,
+  type TitleStyle,
+  type TrackKind,
+  type TransitionType,
+} from './_components/timeline-editor-domain';
 
 const MIN_CLIP_SPAN_SECONDS = 0.3;
 const MIN_ITEM_DURATION_SECONDS = 0.5;
@@ -123,11 +66,6 @@ const MAX_IMPORT_DURATION = 60 * 60 * 6; // 6 hours
 const WAVEFORM_POINT_MIN = 96;
 const WAVEFORM_POINT_MAX = 1024;
 const WAVEFORM_STORAGE_PREFIX = 'videoviber-waveform-v1-';
-
-interface TimelineViewportState {
-  scrollLeft: number;
-  width: number;
-}
 
 const TRACK_IDS: Record<TrackKind, string> = {
   video: 'track-video',
@@ -338,6 +276,59 @@ const isInteractiveTarget = (target: EventTarget | null) => {
   );
 };
 
+const parseFirstNumber = (value: string) => {
+  const match = value.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseTimeTextToSeconds = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.includes(':')) {
+    const parts = trimmed.split(':').map((part) => Number(part));
+    const [first = 0, second = 0, third = 0] = parts;
+    if (parts.every((part) => Number.isFinite(part) && part >= 0)) {
+      if (parts.length === 2) {
+        return first * 60 + second;
+      }
+      if (parts.length === 3) {
+        return first * 3600 + second * 60 + third;
+      }
+    }
+  }
+
+  const minuteMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?/i);
+  const secondMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?/i);
+  if (minuteMatch || secondMatch) {
+    const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+    const seconds = secondMatch ? Number(secondMatch[1]) : 0;
+    if (Number.isFinite(minutes) && Number.isFinite(seconds)) {
+      return minutes * 60 + seconds;
+    }
+  }
+
+  const raw = Number(trimmed);
+  return Number.isFinite(raw) ? raw : null;
+};
+
+const parseThemeFromCommand = (command: string): TimelineThemeId | null => {
+  const normalized = command.toLowerCase();
+  if (normalized.includes('minimal')) return 'minimal-chat';
+  if (normalized.includes('advanced') || normalized.includes('studio')) return 'advanced-studio';
+  if (normalized.includes('story') || normalized.includes('director')) return 'storyboard-director';
+  if (normalized.includes('audio') || normalized.includes('mix')) return 'audio-mix';
+  if (normalized.includes('review')) return 'review-focus';
+  return null;
+};
+
+const formatAgentMessageTime = (timestamp: number) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 function toImportedTitle(fileName: string) {
   return fileName.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim() || 'Imported Clip';
 }
@@ -485,6 +476,17 @@ const isTimelineState = (value: unknown): value is TimelineState => {
   );
 };
 
+const isTimelineThemeStoragePayload = (value: unknown): value is TimelineThemeStoragePayload => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<TimelineThemeStoragePayload>;
+  if (!candidate.themeId || typeof candidate.themeId !== 'string') return false;
+  if (!(candidate.themeId in TIMELINE_THEME_BY_ID)) return false;
+  if (!candidate.moduleOverrides || typeof candidate.moduleOverrides !== 'object') {
+    return false;
+  }
+  return true;
+};
+
 function clampTrimStart(clip: TimelineClip, nextStart: number) {
   const maxStart = Math.max(0, clip.trimEnd - MIN_CLIP_SPAN_SECONDS);
   return clamp(nextStart, 0, maxStart);
@@ -519,8 +521,25 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const [importingMedia, setImportingMedia] = useState(false);
   const [, setWaveformVersion] = useState(0);
   const [viewport, setViewport] = useState<TimelineViewportState>({ scrollLeft: 0, width: 0 });
+  const [activeThemeId, setActiveThemeId] = useState<TimelineThemeId>('advanced-studio');
+  const [moduleOverrides, setModuleOverrides] = useState<Partial<TimelineModuleFlags>>({});
+  const [showModuleEditor, setShowModuleEditor] = useState(false);
+  const [agentInput, setAgentInput] = useState('');
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
+    {
+      id: uid('agent'),
+      role: 'assistant',
+      content:
+        'Timeline agent ready. Try: "split selected clip", "add marker intro", "theme minimal", or "help".',
+      createdAt: Date.now(),
+    },
+  ]);
+  const [agentAutoApply, setAgentAutoApply] = useState(true);
+  const [agentSafeMode, setAgentSafeMode] = useState(true);
+  const [pendingSafeCommand, setPendingSafeCommand] = useState<string | null>(null);
 
   const loadedProjectIdRef = useRef<string | null>(null);
+  const loadedThemeKeyRef = useRef<string | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const timelineViewportRef = useRef<HTMLDivElement | null>(null);
   const timelineImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -529,6 +548,7 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const waveformPendingRef = useRef<Set<string>>(new Set());
   const waveformAudioContextRef = useRef<AudioContext | null>(null);
   const timelineStorageKey = project ? `videoviber-timeline-${project.id}` : null;
+  const themeStorageKey = project ? `${TIMELINE_THEME_STORAGE_PREFIX}${project.id}` : null;
 
   const timeline = history.index >= 0 ? history.entries[history.index] ?? null : null;
   const timelineClips = useMemo(() => timeline?.clips ?? [], [timeline]);
@@ -554,6 +574,12 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [timeline?.titleOverlays]);
 
   const totalDuration = Math.max(clipTimelineDuration, maxMusicEnd, maxTitleEnd);
+
+  const activeTheme = TIMELINE_THEME_BY_ID[activeThemeId] ?? TIMELINE_THEME_BY_ID['advanced-studio'];
+  const visibleModules = useMemo(
+    () => ({ ...activeTheme.modules, ...moduleOverrides }),
+    [activeTheme.modules, moduleOverrides]
+  );
 
   const selectedClip = useMemo(
     () => timelineClips.find((clip) => clip.id === selectedClipId) ?? null,
@@ -1299,6 +1325,387 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     setZoom(toFixedNumber(nextZoom, 2));
   }, [totalDuration, basePixelsPerSecond]);
 
+  const appendAgentMessage = useCallback((role: AgentMessage['role'], content: string) => {
+    setAgentMessages((previous) => {
+      const next = [
+        ...previous,
+        {
+          id: uid('agent'),
+          role,
+          content,
+          createdAt: Date.now(),
+        },
+      ];
+      return next.length > CHAT_HISTORY_LIMIT ? next.slice(next.length - CHAT_HISTORY_LIMIT) : next;
+    });
+  }, []);
+
+  const applyThemePreset = useCallback((nextThemeId: TimelineThemeId) => {
+    setActiveThemeId(nextThemeId);
+    setModuleOverrides({});
+    setShowModuleEditor(false);
+  }, []);
+
+  const toggleModuleVisibility = useCallback(
+    (key: TimelineModuleKey) => {
+      setModuleOverrides((previous) => {
+        const merged = { ...activeTheme.modules, ...previous };
+        const nextValue = !merged[key];
+        const next = { ...previous };
+
+        if (nextValue === activeTheme.modules[key]) {
+          delete next[key];
+        } else {
+          next[key] = nextValue;
+        }
+
+        return next;
+      });
+    },
+    [activeTheme.modules]
+  );
+
+  const runAgentCommand = useCallback(
+    (rawInput: string) => {
+      const trimmed = rawInput.trim();
+      if (!trimmed) return;
+
+      appendAgentMessage('user', trimmed);
+
+      let commandText = trimmed;
+      let isConfirming = false;
+
+      if (/^confirm\b/i.test(trimmed) && pendingSafeCommand) {
+        commandText = pendingSafeCommand;
+        isConfirming = true;
+        setPendingSafeCommand(null);
+      }
+
+      const lower = commandText.toLowerCase();
+
+      const respond = (message: string) => {
+        appendAgentMessage('assistant', message);
+      };
+
+      const perform = (
+        label: string,
+        action: () => void,
+        options?: { destructive?: boolean; previewLabel?: string }
+      ) => {
+        if (options?.destructive && agentSafeMode && !isConfirming) {
+          setPendingSafeCommand(commandText);
+          respond(
+            `Safe mode is on. Confirm this destructive edit with: "confirm ${commandText}".`
+          );
+          return;
+        }
+
+        if (!agentAutoApply) {
+          respond(`Auto-apply is off. Pending action: ${options?.previewLabel ?? label}`);
+          return;
+        }
+
+        action();
+        respond(label);
+      };
+
+      if (
+        lower === 'help' ||
+        lower === '?' ||
+        lower.includes('what can you do') ||
+        lower.includes('commands')
+      ) {
+        respond(
+          'Commands: theme minimal|advanced|storyboard|audio|review, split selected clip, duplicate clip, delete clip, add marker intro, add title Intro Card, add music bed, mute timeline, unmute timeline, snap on|off, zoom 1.6, speed 1.25, seek 1:20, fit timeline, undo, redo.'
+        );
+        return;
+      }
+
+      if (lower.includes('theme')) {
+        const themeId = parseThemeFromCommand(lower);
+        if (!themeId) {
+          respond(
+            'Theme not recognized. Use one of: minimal, advanced, storyboard, audio, review.'
+          );
+          return;
+        }
+
+        const theme = TIMELINE_THEME_BY_ID[themeId];
+        perform(`Theme switched to "${theme.name}".`, () => applyThemePreset(themeId));
+        return;
+      }
+
+      if (lower.includes('split')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to split.');
+          return;
+        }
+        perform('Split selected clip at playhead.', () => splitSelectedClip());
+        return;
+      }
+
+      if (lower.includes('duplicate') && lower.includes('clip')) {
+        if (!selectedClip) {
+          respond('Select a clip first, then ask me to duplicate it.');
+          return;
+        }
+        perform('Duplicated selected clip.', () => duplicateSelectedClip());
+        return;
+      }
+
+      if (
+        (lower.includes('delete') || lower.includes('remove')) &&
+        (lower.includes('clip') || lower.includes('selected'))
+      ) {
+        if (!selectedClip) {
+          respond('No clip is selected to delete.');
+          return;
+        }
+        perform('Removed selected clip.', () => deleteSelectedClip(), { destructive: true });
+        return;
+      }
+
+      if (lower.includes('add marker') || lower.startsWith('marker ')) {
+        if (!timeline) {
+          respond('Timeline is not ready yet.');
+          return;
+        }
+
+        if (totalDuration <= 0) {
+          respond('Timeline duration is empty. Add a clip first.');
+          return;
+        }
+
+        const label =
+          commandText
+            .replace(/^add\s+marker\s*/i, '')
+            .replace(/^marker\s*/i, '')
+            .trim() || `Marker ${timeline.markers.length + 1}`;
+
+        perform(`Added marker "${label}".`, () => {
+          const markerTime = clamp(currentTime, 0, totalDuration);
+          const color = MARKER_COLORS[timeline.markers.length % MARKER_COLORS.length] ?? '#52deff';
+          commitTimeline((state) => ({
+            ...state,
+            markers: [...state.markers, { id: uid('marker'), label, time: markerTime, color }].sort(
+              (a, b) => a.time - b.time
+            ),
+          }));
+          setSelectedClipId(null);
+          setSelectedMusicId(null);
+          setSelectedTitleId(null);
+        });
+        return;
+      }
+
+      if (lower.includes('add title')) {
+        const customText = commandText.replace(/^add\s+title\s*/i, '').trim();
+
+        perform(`Added title overlay "${customText || 'New Title'}".`, () => {
+          if (trackStatus.byKind.titles.locked) {
+            toast.error('Title track is locked.');
+            return;
+          }
+
+          const start = clamp(currentTime, 0, Math.max(totalDuration, 0));
+          const id = uid('title');
+
+          commitTimeline((state) => ({
+            ...state,
+            titleOverlays: [
+              ...state.titleOverlays,
+              {
+                id,
+                text: customText || `Title ${state.titleOverlays.length + 1}`,
+                start: toFixedNumber(start, 3),
+                duration: 3,
+                style: 'lower-third',
+                color: TITLE_COLORS[state.titleOverlays.length % TITLE_COLORS.length] ?? '#f8fafc',
+                enabled: true,
+              },
+            ],
+          }));
+
+          setSelectedTitleId(id);
+          setSelectedClipId(null);
+          setSelectedMusicId(null);
+        });
+        return;
+      }
+
+      if (lower.includes('add music')) {
+        perform('Added a music bed at the playhead.', () => addMusicBedAtPlayhead());
+        return;
+      }
+
+      if (lower.includes('mute timeline') && !lower.includes('unmute')) {
+        perform('Timeline muted.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            masterMuted: true,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('unmute timeline')) {
+        perform('Timeline unmuted.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            masterMuted: false,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('snap on')) {
+        perform('Snap turned on.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            snapEnabled: true,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('snap off')) {
+        perform('Snap turned off.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            snapEnabled: false,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('show waveforms')) {
+        perform('Waveforms enabled.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            showWaveforms: true,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('hide waveforms')) {
+        perform('Waveforms hidden.', () =>
+          commitTimeline((state) => ({
+            ...state,
+            showWaveforms: false,
+          }))
+        );
+        return;
+      }
+
+      if (lower.includes('fit timeline')) {
+        perform('Timeline fit to viewport.', () => fitTimelineToViewport());
+        return;
+      }
+
+      if (lower.includes('undo')) {
+        perform('Undo applied.', () => handleUndo());
+        return;
+      }
+
+      if (lower.includes('redo')) {
+        perform('Redo applied.', () => handleRedo());
+        return;
+      }
+
+      if (lower.includes('zoom')) {
+        const nextZoom = parseFirstNumber(lower);
+        if (!nextZoom || nextZoom <= 0) {
+          respond('Provide a zoom value, for example: "zoom 1.8".');
+          return;
+        }
+
+        perform(`Zoom set to ${nextZoom.toFixed(2)}x.`, () => {
+          setZoom(clamp(nextZoom, 0.25, 8));
+        });
+        return;
+      }
+
+      if (lower.includes('speed')) {
+        if (!selectedClip) {
+          respond('Select a clip first before changing speed.');
+          return;
+        }
+
+        const speed = parseFirstNumber(lower);
+        if (!speed || speed <= 0) {
+          respond('Provide a speed value, for example: "speed 1.25".');
+          return;
+        }
+
+        perform(`Clip speed set to ${speed.toFixed(2)}x.`, () => {
+          updateSelectedClip((clip) => ({
+            ...clip,
+            playbackRate: clamp(Number(speed.toFixed(2)), 0.25, 3),
+          }));
+        });
+        return;
+      }
+
+      if (lower.includes('seek') || lower.includes('jump') || lower.includes('go to')) {
+        const timeMatch = commandText.match(
+          /(?:seek|jump(?:\s+to)?|go\s+to)\s+([0-9:.]+\s*(?:m(?:in(?:ute)?s?)?|s(?:ec(?:ond)?s?)?)?)/i
+        );
+        const rawTime = timeMatch?.[1]?.trim();
+        const parsed = rawTime ? parseTimeTextToSeconds(rawTime) : null;
+
+        if (parsed === null || !Number.isFinite(parsed)) {
+          respond('Provide a valid time, for example: "seek 1:20" or "jump to 45s".');
+          return;
+        }
+
+        perform(`Moved playhead to ${formatTime(parsed)}.`, () => {
+          seekTo(parsed, { disableSnap: true });
+        });
+        return;
+      }
+
+      if (lower.includes('refresh clips')) {
+        perform('Timeline refreshed from completed clips.', () => refreshFromProjectShots());
+        return;
+      }
+
+      respond(
+        'I could not map that command yet. Try "help" for examples or use one of the quick commands.'
+      );
+    },
+    [
+      addMusicBedAtPlayhead,
+      agentAutoApply,
+      agentSafeMode,
+      appendAgentMessage,
+      applyThemePreset,
+      commitTimeline,
+      currentTime,
+      deleteSelectedClip,
+      duplicateSelectedClip,
+      fitTimelineToViewport,
+      handleRedo,
+      handleUndo,
+      pendingSafeCommand,
+      refreshFromProjectShots,
+      seekTo,
+      selectedClip,
+      splitSelectedClip,
+      timeline,
+      totalDuration,
+      trackStatus.byKind.titles.locked,
+      updateSelectedClip,
+    ]
+  );
+
+  const submitAgentInput = useCallback(() => {
+    const trimmed = agentInput.trim();
+    if (!trimmed) return;
+    runAgentCommand(trimmed);
+    setAgentInput('');
+  }, [agentInput, runAgentCommand]);
+
   const getWaveformKey = useCallback((clip: TimelineClip) => {
     return [
       clip.shotId,
@@ -1779,6 +2186,38 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   }, [timelineStorageKey, timeline]);
 
   useEffect(() => {
+    if (!themeStorageKey) return;
+    if (loadedThemeKeyRef.current === themeStorageKey) return;
+    loadedThemeKeyRef.current = themeStorageKey;
+
+    try {
+      const raw = window.localStorage.getItem(themeStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (isTimelineThemeStoragePayload(parsed)) {
+        setActiveThemeId(parsed.themeId);
+        setModuleOverrides(parsed.moduleOverrides);
+      }
+    } catch {
+      // Ignore malformed theme payloads and use defaults.
+    }
+  }, [themeStorageKey]);
+
+  useEffect(() => {
+    if (!themeStorageKey) return;
+    const payload: TimelineThemeStoragePayload = {
+      themeId: activeThemeId,
+      moduleOverrides,
+    };
+
+    try {
+      window.localStorage.setItem(themeStorageKey, JSON.stringify(payload));
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [themeStorageKey, activeThemeId, moduleOverrides]);
+
+  useEffect(() => {
     const viewportElement = timelineViewportRef.current;
     if (!viewportElement) return;
 
@@ -2012,6 +2451,18 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     { kind: 'titles', short: 'T1', description: 'Text overlays', heightClass: 'h-9' },
   ];
 
+  const showInspectorColumn =
+    visibleModules.inspector || visibleModules.trackMixer || visibleModules.audioPanel;
+  const showAgentSidebar = visibleModules.chatSidebar;
+  const leftColumnSpanClass =
+    showInspectorColumn && showAgentSidebar
+      ? 'xl:col-span-7'
+      : showInspectorColumn || showAgentSidebar
+        ? 'xl:col-span-8'
+        : 'xl:col-span-12';
+  const inspectorSpanClass = showAgentSidebar ? 'xl:col-span-3' : 'xl:col-span-4';
+  const agentSpanClass = showInspectorColumn ? 'xl:col-span-2' : 'xl:col-span-4';
+
   return (
     <div className="animate-fade-in-up flex h-[calc(100vh-3.5rem)] flex-col space-y-3">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -2117,9 +2568,23 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
         </div>
       </div>
 
+      <ThemeLayoutPanel
+        activeTheme={activeTheme}
+        activeThemeId={activeThemeId}
+        themePresets={TIMELINE_THEME_PRESETS}
+        moduleLabels={TIMELINE_MODULE_LABELS}
+        visibleModules={visibleModules}
+        showModuleEditor={showModuleEditor}
+        onThemeChange={applyThemePreset}
+        onToggleModuleEditor={() => setShowModuleEditor((open) => !open)}
+        onResetThemeLayout={() => applyThemePreset(activeThemeId)}
+        onToggleModuleVisibility={toggleModuleVisibility}
+      />
+
       <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-12">
-        <div className="flex min-h-0 flex-col gap-3 xl:col-span-8">
-          <div className="vv-card from-vv-surface to-vv-base relative flex min-h-[260px] flex-1 items-center justify-center overflow-hidden bg-gradient-to-br">
+        <div className={`flex min-h-0 flex-col gap-3 ${leftColumnSpanClass}`}>
+          {visibleModules.preview && (
+            <div className="vv-card from-vv-surface to-vv-base relative flex min-h-[260px] flex-1 items-center justify-center overflow-hidden bg-gradient-to-br">
             {canUsePreviewVideo && previewClip?.videoUrl ? (
               <video
                 ref={previewVideoRef}
@@ -2216,9 +2681,11 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
                 {previewSegment.clip.title} · {formatTime(previewSegment.duration)}
               </div>
             )}
-          </div>
+            </div>
+          )}
 
-          <div className="vv-card space-y-3">
+          {visibleModules.timelineControls && (
+            <div className="vv-card space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => seekTo(0, { disableSnap: true })}
@@ -2324,953 +2791,138 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             <p className="text-vv-muted text-[11px]">
               Shortcuts: Space play/pause, Arrow Left/Right nudge, M marker, T title, Ctrl/Cmd+Shift+S split, Ctrl/Cmd+Z undo.
             </p>
-          </div>
-        </div>
-
-        <div className="vv-card min-h-0 overflow-y-auto xl:col-span-4">
-          <div className="mb-4 flex items-center gap-2">
-            <svg
-              className="text-accent h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-              />
-            </svg>
-            <h3 className="text-vv-secondary text-sm font-bold">Inspector</h3>
-          </div>
-
-          {selectedClip ? (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold">Clip: {selectedClip.title}</h4>
-                <p className="text-vv-muted mt-1 text-xs">{selectedClip.prompt}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-vv-muted">Source</p>
-                  <p className="font-mono">{formatTime(selectedClip.sourceDuration)}</p>
-                </div>
-                <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-vv-muted">Timeline</p>
-                  <p className="font-mono">{formatTime(getClipDuration(selectedClip))}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-                <p className="text-vv-secondary text-xs font-semibold uppercase tracking-wider">Timing</p>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Trim Start</span>
-                    <span className="font-mono">{formatTime(selectedClip.trimStart)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, selectedClip.trimEnd - MIN_CLIP_SPAN_SECONDS)}
-                    step={0.05}
-                    value={selectedClip.trimStart}
-                    onChange={(event) =>
-                      updateSelectedClip((clip) => ({
-                        ...clip,
-                        trimStart: toFixedNumber(clampTrimStart(clip, Number(event.target.value)), 3),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Trim End</span>
-                    <span className="font-mono">{formatTime(selectedClip.trimEnd)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={Math.min(
-                      selectedClip.sourceDuration,
-                      selectedClip.trimStart + MIN_CLIP_SPAN_SECONDS
-                    )}
-                    max={selectedClip.sourceDuration}
-                    step={0.05}
-                    value={selectedClip.trimEnd}
-                    onChange={(event) =>
-                      updateSelectedClip((clip) => ({
-                        ...clip,
-                        trimEnd: toFixedNumber(clampTrimEnd(clip, Number(event.target.value)), 3),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Speed</span>
-                    <span className="font-mono">{selectedClip.playbackRate.toFixed(2)}x</span>
-                  </div>
-                  <select
-                    value={selectedClip.playbackRate}
-                    onChange={(event) =>
-                      updateSelectedClip((clip) => ({
-                        ...clip,
-                        playbackRate: Number(event.target.value),
-                      }))
-                    }
-                    className="vv-input h-9 w-full py-2 text-xs"
-                  >
-                    {SPEED_OPTIONS.map((speed) => (
-                      <option key={speed} value={speed}>
-                        {speed.toFixed(2)}x
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-                <p className="text-vv-secondary text-xs font-semibold uppercase tracking-wider">
-                  Transition and Audio
-                </p>
-
-                <label className="block space-y-1">
-                  <span className="text-vv-muted text-xs">Transition</span>
-                  <select
-                    value={selectedClip.transitionType}
-                    onChange={(event) =>
-                      updateSelectedClip((clip) => ({
-                        ...clip,
-                        transitionType: event.target.value as TransitionType,
-                        transitionDuration:
-                          event.target.value === 'cut' ? 0 : Math.max(clip.transitionDuration, 0.2),
-                      }))
-                    }
-                    className="vv-input h-9 w-full py-2 text-xs"
-                  >
-                    <option value="cut">Cut</option>
-                    <option value="dissolve">Dissolve</option>
-                    <option value="fade">Fade</option>
-                    <option value="wipe">Wipe</option>
-                  </select>
-                </label>
-
-                {selectedClip.transitionType !== 'cut' && (
-                  <label className="block space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-vv-muted">Transition Duration</span>
-                      <span className="font-mono">{selectedClip.transitionDuration.toFixed(1)}s</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0.2}
-                      max={1.5}
-                      step={0.1}
-                      value={selectedClip.transitionDuration}
-                      onChange={(event) =>
-                        updateSelectedClip((clip) => ({
-                          ...clip,
-                          transitionDuration: Number(event.target.value),
-                        }))
-                      }
-                      className="accent-accent w-full"
-                    />
-                  </label>
-                )}
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Clip Volume</span>
-                    <span className="font-mono">{Math.round(selectedClip.audioVolume)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={150}
-                    step={1}
-                    value={selectedClip.audioVolume}
-                    onChange={(event) =>
-                      updateSelectedClip((clip) => ({
-                        ...clip,
-                        audioVolume: Number(event.target.value),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <button
-                  onClick={() =>
-                    updateSelectedClip((clip) => ({
-                      ...clip,
-                      muted: !clip.muted,
-                    }))
-                  }
-                  className={`vv-btn-ghost w-full justify-center py-2 text-xs ${selectedClip.muted ? 'text-accent' : ''}`}
-                >
-                  {selectedClip.muted ? 'Unmute Clip' : 'Mute Clip'}
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-vv-muted text-xs">Clip Color</span>
-                  <div className="ml-auto flex gap-1">
-                    {(Object.keys(CLIP_COLOR_CLASSES) as ClipColor[]).map((color) => (
-                      <button
-                        key={color}
-                        onClick={() =>
-                          updateSelectedClip((clip) => ({
-                            ...clip,
-                            color,
-                          }))
-                        }
-                        className={`h-5 w-5 rounded-full border transition-all ${
-                          selectedClip.color === color
-                            ? 'scale-110 border-white/80'
-                            : 'border-white/20 hover:border-white/50'
-                        } ${CLIP_COLOR_CLASSES[color].accent}`}
-                        title={color}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => moveSelectedClip(-1)}
-                  className="vv-btn-secondary px-3 py-2 text-xs"
-                >
-                  Move Left
-                </button>
-                <button
-                  onClick={() => moveSelectedClip(1)}
-                  className="vv-btn-secondary px-3 py-2 text-xs"
-                >
-                  Move Right
-                </button>
-                <button onClick={duplicateSelectedClip} className="vv-btn-secondary px-3 py-2 text-xs">
-                  Duplicate
-                </button>
-                <button
-                  onClick={deleteSelectedClip}
-                  className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
-                >
-                  Delete Clip
-                </button>
-              </div>
             </div>
-          ) : selectedMusicBed ? (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold">Music Bed: {selectedMusicBed.title}</h4>
-                <p className="text-vv-muted mt-1 text-xs">
-                  Metadata track for future music renders and mix handoff.
-                </p>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-                <label className="block space-y-1">
-                  <span className="text-vv-muted text-xs">Name</span>
-                  <input
-                    value={selectedMusicBed.title}
-                    onChange={(event) =>
-                      updateSelectedMusicBed((item) => ({ ...item, title: event.target.value }))
-                    }
-                    className="vv-input h-9 w-full py-2 text-xs"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Start</span>
-                    <span className="font-mono">{formatTime(selectedMusicBed.start)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, totalDuration)}
-                    step={0.1}
-                    value={selectedMusicBed.start}
-                    onChange={(event) =>
-                      updateSelectedMusicBed((item) => ({
-                        ...item,
-                        start: toFixedNumber(Number(event.target.value), 3),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Duration</span>
-                    <span className="font-mono">{formatTime(selectedMusicBed.duration)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={MIN_ITEM_DURATION_SECONDS}
-                    max={Math.max(MIN_ITEM_DURATION_SECONDS, Math.max(totalDuration, 10))}
-                    step={0.1}
-                    value={selectedMusicBed.duration}
-                    onChange={(event) =>
-                      updateSelectedMusicBed((item) => ({
-                        ...item,
-                        duration: clamp(
-                          Number(event.target.value),
-                          MIN_ITEM_DURATION_SECONDS,
-                          Math.max(totalDuration, 10)
-                        ),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Volume</span>
-                    <span className="font-mono">{Math.round(selectedMusicBed.volume)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={150}
-                    step={1}
-                    value={selectedMusicBed.volume}
-                    onChange={(event) =>
-                      updateSelectedMusicBed((item) => ({
-                        ...item,
-                        volume: Number(event.target.value),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() =>
-                      updateSelectedMusicBed((item) => ({
-                        ...item,
-                        muted: !item.muted,
-                      }))
-                    }
-                    className={`vv-btn-ghost py-2 text-xs ${selectedMusicBed.muted ? 'text-accent' : ''}`}
-                  >
-                    {selectedMusicBed.muted ? 'Unmute' : 'Mute'}
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateSelectedMusicBed((item) => ({
-                        ...item,
-                        loop: !item.loop,
-                      }))
-                    }
-                    className={`vv-btn-ghost py-2 text-xs ${selectedMusicBed.loop ? 'text-accent' : ''}`}
-                  >
-                    {selectedMusicBed.loop ? 'Loop On' : 'Loop Off'}
-                  </button>
-                </div>
-
-                <button
-                  onClick={removeSelectedMusicBed}
-                  className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
-                >
-                  Delete Music Bed
-                </button>
-              </div>
-            </div>
-          ) : selectedTitle ? (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold">Title Overlay</h4>
-                <p className="text-vv-muted mt-1 text-xs">Appears in the preview and export EDL.</p>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-                <label className="block space-y-1">
-                  <span className="text-vv-muted text-xs">Text</span>
-                  <input
-                    value={selectedTitle.text}
-                    onChange={(event) =>
-                      updateSelectedTitle((item) => ({ ...item, text: event.target.value }))
-                    }
-                    className="vv-input h-9 w-full py-2 text-xs"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <span className="text-vv-muted text-xs">Style</span>
-                  <select
-                    value={selectedTitle.style}
-                    onChange={(event) =>
-                      updateSelectedTitle((item) => ({
-                        ...item,
-                        style: event.target.value as TitleStyle,
-                      }))
-                    }
-                    className="vv-input h-9 w-full py-2 text-xs"
-                  >
-                    <option value="title">Title Card</option>
-                    <option value="lower-third">Lower Third</option>
-                    <option value="caption">Caption</option>
-                  </select>
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Start</span>
-                    <span className="font-mono">{formatTime(selectedTitle.start)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, totalDuration)}
-                    step={0.1}
-                    value={selectedTitle.start}
-                    onChange={(event) =>
-                      updateSelectedTitle((item) => ({
-                        ...item,
-                        start: toFixedNumber(Number(event.target.value), 3),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-vv-muted">Duration</span>
-                    <span className="font-mono">{formatTime(selectedTitle.duration)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={MIN_ITEM_DURATION_SECONDS}
-                    max={Math.max(MIN_ITEM_DURATION_SECONDS, Math.max(totalDuration, 10))}
-                    step={0.1}
-                    value={selectedTitle.duration}
-                    onChange={(event) =>
-                      updateSelectedTitle((item) => ({
-                        ...item,
-                        duration: clamp(
-                          Number(event.target.value),
-                          MIN_ITEM_DURATION_SECONDS,
-                          Math.max(totalDuration, 10)
-                        ),
-                      }))
-                    }
-                    className="accent-accent w-full"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <span className="text-vv-muted text-xs">Color</span>
-                  <input
-                    type="color"
-                    value={selectedTitle.color}
-                    onChange={(event) =>
-                      updateSelectedTitle((item) => ({
-                        ...item,
-                        color: event.target.value,
-                      }))
-                    }
-                    className="h-9 w-full cursor-pointer rounded-md border border-white/20 bg-transparent"
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() =>
-                      updateSelectedTitle((item) => ({
-                        ...item,
-                        enabled: !item.enabled,
-                      }))
-                    }
-                    className={`vv-btn-ghost py-2 text-xs ${selectedTitle.enabled ? 'text-accent' : ''}`}
-                  >
-                    {selectedTitle.enabled ? 'Enabled' : 'Disabled'}
-                  </button>
-                  <button
-                    onClick={removeSelectedTitle}
-                    className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition-all hover:bg-red-500/20"
-                  >
-                    Delete Title
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-vv-muted text-sm">
-              Select a clip, music bed, or title layer to inspect and edit properties.
-            </p>
           )}
 
-          <div className="mt-5 space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-vv-secondary text-xs font-semibold uppercase tracking-wider">Track Mixer</p>
-            {trackRows.map((row) => {
-              const track = trackStatus.byKind[row.kind];
+          {!visibleModules.preview && !visibleModules.timelineControls && (
+            <div className="vv-card flex min-h-[160px] items-center justify-center text-sm text-vv-muted">
+              Enable `Preview` or `Transport` modules to show editor controls in this theme.
+            </div>
+          )}
+        </div>
 
-              return (
-                <div key={row.kind} className="rounded-lg border border-white/10 bg-white/[0.02] px-2 py-2">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold">
-                      {row.short} · {track.name}
-                    </span>
-                    {trackStatus.hasSolo && !track.solo && (
-                      <span className="text-vv-muted text-[10px]">Excluded by solo</span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 text-xs">
-                    <button
-                      onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          locked: !item.locked,
-                        }))
-                      }
-                      className={`rounded-md border px-2 py-1 ${track.locked ? 'border-amber-300/60 text-amber-200' : 'border-white/15 text-vv-muted hover:text-vv-primary'}`}
-                    >
-                      {track.locked ? 'Locked' : 'Lock'}
-                    </button>
-                    <button
-                      onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          muted: !item.muted,
-                        }))
-                      }
-                      className={`rounded-md border px-2 py-1 ${track.muted ? 'border-rose-300/60 text-rose-200' : 'border-white/15 text-vv-muted hover:text-vv-primary'}`}
-                    >
-                      {track.muted ? 'Muted' : 'Mute'}
-                    </button>
-                    <button
-                      onClick={() =>
-                        updateTrack(row.kind, (item) => ({
-                          ...item,
-                          solo: !item.solo,
-                        }))
-                      }
-                      className={`rounded-md border px-2 py-1 ${track.solo ? 'border-cyan-300/60 text-cyan-200' : 'border-white/15 text-vv-muted hover:text-vv-primary'}`}
-                    >
-                      {track.solo ? 'Solo' : 'S'}
-                    </button>
-                  </div>
-                </div>
+        {showInspectorColumn && (
+          <TimelineInspectorPanel
+            containerSpanClass={inspectorSpanClass}
+            visibleInspector={visibleModules.inspector}
+            visibleTrackMixer={visibleModules.trackMixer}
+            visibleAudioPanel={visibleModules.audioPanel}
+            selectedClip={selectedClip}
+            selectedSegment={selectedSegment}
+            selectedMusicBed={selectedMusicBed}
+            selectedTitle={selectedTitle}
+            totalDuration={totalDuration}
+            minClipSpanSeconds={MIN_CLIP_SPAN_SECONDS}
+            minItemDurationSeconds={MIN_ITEM_DURATION_SECONDS}
+            speedOptions={SPEED_OPTIONS}
+            clipColorClasses={CLIP_COLOR_CLASSES}
+            trackRows={trackRows}
+            trackStatus={trackStatus}
+            timeline={timeline}
+            formatTime={formatTime}
+            getClipDuration={getClipDuration}
+            toFixedNumber={toFixedNumber}
+            clamp={clamp}
+            clampTrimStart={clampTrimStart}
+            clampTrimEnd={clampTrimEnd}
+            updateSelectedClip={updateSelectedClip}
+            updateSelectedMusicBed={updateSelectedMusicBed}
+            updateSelectedTitle={updateSelectedTitle}
+            moveSelectedClip={moveSelectedClip}
+            duplicateSelectedClip={duplicateSelectedClip}
+            deleteSelectedClip={deleteSelectedClip}
+            removeSelectedMusicBed={removeSelectedMusicBed}
+            removeSelectedTitle={removeSelectedTitle}
+            updateTrack={updateTrack}
+            commitTimeline={commitTimeline}
+          />
+        )}
+
+        {showAgentSidebar && (
+          <AgentSidebar
+            agentMessages={agentMessages}
+            agentAutoApply={agentAutoApply}
+            agentSafeMode={agentSafeMode}
+            pendingSafeCommand={pendingSafeCommand}
+            quickCommands={AGENT_QUICK_COMMANDS}
+            onClearHistory={() => setAgentMessages((messages) => messages.slice(-1))}
+            onToggleAutoApply={() => setAgentAutoApply((value) => !value)}
+            onToggleSafeMode={() => setAgentSafeMode((value) => !value)}
+            onRunCommand={runAgentCommand}
+            formatMessageTime={formatAgentMessageTime}
+            containerSpanClass={agentSpanClass}
+          />
+        )}
+      </div>
+
+      {visibleModules.timelineTracks && (
+        <TimelineTrackCanvas
+          timeline={timeline}
+          timelineClips={timelineClips}
+          totalDuration={totalDuration}
+          formatTime={formatTime}
+          trackRows={trackRows}
+          trackStatus={trackStatus}
+          updateTrack={updateTrack}
+          trackWidth={trackWidth}
+          timelineViewportRef={timelineViewportRef}
+          rulerTicks={rulerTicks}
+          seekFromEvent={seekFromEvent}
+          seekToTime={(seconds) => seekTo(seconds, { disableSnap: true })}
+          onMarkerSelect={(seconds) => {
+            seekTo(seconds, { disableSnap: true });
+            setSelectedClipId(null);
+            setSelectedMusicId(null);
+            setSelectedTitleId(null);
+          }}
+          onClearSelections={() => {
+            setSelectedClipId(null);
+            setSelectedMusicId(null);
+            setSelectedTitleId(null);
+          }}
+          playheadLeft={playheadLeft}
+          onTrackDragOver={handleTrackDragOver}
+          onTrackDrop={handleTrackDrop}
+          onTrackDragLeave={() => {
+            if (dragState) {
+              setDragState((previous) =>
+                previous ? { ...previous, targetId: null, position: 'end' } : previous
               );
-            })}
-          </div>
+            }
+          }}
+          virtualizedSegments={virtualizedSegments}
+          virtualizedMusicBeds={virtualizedMusicBeds}
+          virtualizedTitleOverlays={virtualizedTitleOverlays}
+          timelinePixelsPerSecond={timelinePixelsPerSecond}
+          selectedClipId={selectedClipId}
+          selectedMusicId={selectedMusicId}
+          selectedTitleId={selectedTitleId}
+          clipColorClasses={CLIP_COLOR_CLASSES}
+          videoTrackLocked={trackStatus.byKind.video.locked}
+          onClipDragStart={handleClipDragStart}
+          onClipDragEnd={() => setDragState(null)}
+          onSelectClip={selectClip}
+          onSelectMusicBed={selectMusicBed}
+          onSelectTitle={selectTitle}
+          onStopPlayback={() => setIsPlaying(false)}
+          getTransitionLabel={getTransitionLabel}
+          dragIndicatorTime={dragIndicatorTime}
+          getWaveformBars={getWaveformBars}
+          showMarkers={visibleModules.markers}
+          onRemoveMarker={removeMarker}
+        />
+      )}
 
-          <div className="mt-5 space-y-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-vv-secondary text-xs font-semibold uppercase tracking-wider">
-              Timeline Audio
-            </p>
-            <label className="block space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-vv-muted">Master Volume</span>
-                <span className="font-mono">{timeline?.masterVolume.toFixed(0) ?? 100}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={150}
-                step={1}
-                value={timeline?.masterVolume ?? 100}
-                onChange={(event) =>
-                  commitTimeline((state) => ({
-                    ...state,
-                    masterVolume: Number(event.target.value),
-                  }))
-                }
-                className="accent-accent w-full"
-              />
-            </label>
-
-            <button
-              onClick={() =>
-                commitTimeline((state) => ({
-                  ...state,
-                  masterMuted: !state.masterMuted,
-                }))
-              }
-              className={`vv-btn-ghost w-full justify-center py-2 text-xs ${timeline?.masterMuted ? 'text-accent' : ''}`}
-            >
-              {timeline?.masterMuted ? 'Unmute Timeline' : 'Mute Timeline'}
-            </button>
-
-            <button
-              onClick={() =>
-                commitTimeline((state) => ({
-                  ...state,
-                  showWaveforms: !state.showWaveforms,
-                }))
-              }
-              className={`vv-btn-ghost w-full justify-center py-2 text-xs ${timeline?.showWaveforms ? 'text-accent' : ''}`}
-            >
-              {timeline?.showWaveforms ? 'Hide Waveforms' : 'Show Waveforms'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="vv-card shrink-0">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-vv-muted text-xs uppercase tracking-wider">Timeline Tracks</p>
-          <p className="text-vv-muted font-mono text-xs">
-            {timelineClips.length} clips · {formatTime(totalDuration)}
-          </p>
-        </div>
-
-        {timelineClips.length > 0 || (timeline?.musicBeds.length ?? 0) > 0 || (timeline?.titleOverlays.length ?? 0) > 0 ? (
-          <div className="grid grid-cols-[170px_minmax(0,1fr)] gap-3">
-            <div className="space-y-2">
-              <div className="text-vv-muted h-7 px-2 text-[10px] font-semibold uppercase tracking-wider">
-                Track
-              </div>
-              {trackRows.map((row) => {
-                const track = trackStatus.byKind[row.kind];
-                const disabledBySolo = trackStatus.hasSolo && !track.solo;
-                return (
-                  <div
-                    key={row.kind}
-                    className={`rounded-md border border-white/10 bg-white/[0.02] px-2 py-2 ${row.heightClass}`}
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold">{row.short}</span>
-                      <span className="text-vv-muted">{track.name}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 text-[10px]">
-                      <button
-                        onClick={() =>
-                          updateTrack(row.kind, (item) => ({
-                            ...item,
-                            locked: !item.locked,
-                          }))
-                        }
-                        className={`rounded px-1.5 py-0.5 ${track.locked ? 'bg-amber-400/20 text-amber-100' : 'bg-white/[0.04] text-vv-muted'}`}
-                      >
-                        L
-                      </button>
-                      <button
-                        onClick={() =>
-                          updateTrack(row.kind, (item) => ({
-                            ...item,
-                            muted: !item.muted,
-                          }))
-                        }
-                        className={`rounded px-1.5 py-0.5 ${track.muted ? 'bg-rose-400/20 text-rose-100' : 'bg-white/[0.04] text-vv-muted'}`}
-                      >
-                        M
-                      </button>
-                      <button
-                        onClick={() =>
-                          updateTrack(row.kind, (item) => ({
-                            ...item,
-                            solo: !item.solo,
-                          }))
-                        }
-                        className={`rounded px-1.5 py-0.5 ${track.solo ? 'bg-cyan-400/20 text-cyan-100' : 'bg-white/[0.04] text-vv-muted'}`}
-                      >
-                        S
-                      </button>
-                      {disabledBySolo && <span className="text-vv-disabled ml-auto">Excluded</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div ref={timelineViewportRef} className="overflow-x-auto">
-              <div style={{ width: `${trackWidth}px` }} className="relative min-w-full">
-                <div
-                  className="border-vv-border/60 bg-vv-base/40 relative mb-2 h-7 cursor-pointer rounded-md border"
-                  onClick={seekFromEvent}
-                >
-                  {rulerTicks.map((tick) => {
-                    const left = totalDuration > 0 ? (tick / totalDuration) * 100 : 0;
-                    return (
-                      <div key={tick} className="absolute inset-y-0" style={{ left: `${left}%` }}>
-                        <div className="bg-vv-border/70 h-2 w-px" />
-                        <span className="text-vv-muted absolute top-2 text-[10px] font-mono">
-                          {formatTime(tick)}
-                        </span>
-                      </div>
-                    );
-                  })}
-
-                  {(timeline?.markers ?? []).map((marker) => {
-                    const left = totalDuration > 0 ? (marker.time / totalDuration) * 100 : 0;
-                    return (
-                      <button
-                        key={marker.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          seekTo(marker.time, { disableSnap: true });
-                          setSelectedClipId(null);
-                          setSelectedMusicId(null);
-                          setSelectedTitleId(null);
-                        }}
-                        className="absolute top-0 h-full w-2 -translate-x-1 rounded-sm"
-                        style={{ left: `${left}%`, backgroundColor: marker.color }}
-                        title={`${marker.label} · ${formatTime(marker.time)}`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="relative space-y-2">
-                  <div
-                    className="pointer-events-none absolute top-0 z-20 h-full w-px bg-accent shadow-[0_0_10px_rgba(82,222,255,0.8)]"
-                    style={{ left: `${playheadLeft}px` }}
-                  >
-                    <div className="bg-accent absolute -left-1.5 -top-1 h-3 w-3 rounded-full" />
-                  </div>
-
-                  <div
-                    className="h-14 rounded-md border border-white/10 bg-white/[0.02] p-1"
-                    onClick={seekFromEvent}
-                    onDragOver={handleTrackDragOver}
-                    onDrop={handleTrackDrop}
-                    onDragLeave={() => {
-                      if (dragState) {
-                        setDragState((previous) =>
-                          previous ? { ...previous, targetId: null, position: 'end' } : previous
-                        );
-                      }
-                    }}
-                  >
-                    <div className="relative h-full">
-                      {virtualizedSegments.map((segment) => {
-                        const clip = segment.clip;
-                        const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
-                        const styles = CLIP_COLOR_CLASSES[clip.color];
-                        const left = segment.start * timelinePixelsPerSecond;
-
-                        return (
-                          <button
-                            key={clip.id}
-                            draggable={!trackStatus.byKind.video.locked}
-                            onDragStart={(event) => handleClipDragStart(event, clip.id)}
-                            onDragEnd={() => setDragState(null)}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              selectClip(clip.id, segment.start);
-                              setIsPlaying(false);
-                            }}
-                            className={`group absolute top-0 flex h-full items-center justify-between rounded-md border px-2 text-left text-xs transition-all ${
-                              clip.id === selectedClipId ? styles.active : styles.idle
-                            } ${trackStatus.byKind.video.locked ? 'cursor-not-allowed opacity-75' : ''}`}
-                            style={{ left: `${left}px`, width: `${width}px` }}
-                            title={`${clip.title} · ${formatTime(segment.duration)}`}
-                          >
-                            <span className="truncate pr-2 font-semibold">{clip.title}</span>
-                            <span className="text-[10px] font-mono opacity-85">
-                              {formatTime(segment.duration)}
-                            </span>
-
-                            {clip.transitionType !== 'cut' && (
-                              <span className="absolute -right-1 -top-2 rounded bg-black/70 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/90">
-                                {getTransitionLabel(clip.transitionType, clip.transitionDuration)}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-
-                      {dragIndicatorTime !== null && (
-                        <div
-                          className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-300/90 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
-                          style={{ left: `${dragIndicatorTime * timelinePixelsPerSecond}px` }}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    className="h-10 rounded-md border border-white/10 bg-white/[0.02] p-1"
-                    onClick={seekFromEvent}
-                  >
-                    <div className="relative h-full">
-                      {virtualizedSegments.map((segment) => {
-                        const clip = segment.clip;
-                        const width = Math.max(segment.duration * timelinePixelsPerSecond, 120);
-                        const styles = CLIP_COLOR_CLASSES[clip.color];
-                        const left = segment.start * timelinePixelsPerSecond;
-
-                        const effectiveVolume =
-                          timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted
-                            ? 0
-                            : (clip.audioVolume * (timeline?.masterVolume ?? 100)) / 100;
-
-                        const waveformOpacity = timeline?.showWaveforms
-                          ? clamp(effectiveVolume / 140, 0.15, 0.95)
-                          : 0.18;
-
-                        const barCount = clamp(Math.round(width / 4), 24, 140);
-                        const bars = timeline?.showWaveforms
-                          ? getWaveformBars(segment, barCount)
-                          : null;
-
-                        return (
-                          <button
-                            key={`${clip.id}-audio`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              selectClip(clip.id, segment.start);
-                            }}
-                            className={`absolute top-0 h-full rounded-md border px-2 text-[10px] transition-all ${
-                              clip.id === selectedClipId ? styles.active : styles.idle
-                            }`}
-                            style={{ left: `${left}px`, width: `${width}px` }}
-                            title={`${clip.title} audio · ${Math.round(effectiveVolume)}%`}
-                          >
-                            {timeline?.showWaveforms && bars ? (
-                              <div
-                                className="absolute inset-y-1 left-2 right-2 flex items-center gap-[1px] overflow-hidden"
-                                style={{ opacity: waveformOpacity }}
-                              >
-                                {bars.map((amplitude, index) => (
-                                  <span
-                                    key={`${clip.id}-${index}`}
-                                    className="w-[2px] flex-1 rounded-sm bg-white/80"
-                                    style={{ height: `${Math.max(6, amplitude * 100)}%` }}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <div
-                                className="absolute inset-y-1 left-2 right-2 rounded"
-                                style={{
-                                  opacity: waveformOpacity,
-                                  background:
-                                    'repeating-linear-gradient(90deg, rgba(255,255,255,0.65) 0px, rgba(255,255,255,0.65) 2px, transparent 2px, transparent 6px)',
-                                }}
-                              />
-                            )}
-                            <span className="relative z-10 font-mono">
-                              {timeline?.masterMuted || !trackStatus.dialogueAudible || clip.muted
-                                ? 'Muted'
-                                : `${Math.round(effectiveVolume)}%`}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div
-                    className="h-10 rounded-md border border-white/10 bg-white/[0.02] p-1"
-                    onClick={seekFromEvent}
-                  >
-                    <div className="relative h-full">
-                      {virtualizedMusicBeds.map((item) => {
-                        const width = Math.max(item.duration * timelinePixelsPerSecond, 50);
-                        const left = item.start * timelinePixelsPerSecond;
-                        const styles = CLIP_COLOR_CLASSES[item.color];
-                        const isSelected = item.id === selectedMusicId;
-                        const muted = item.muted || !trackStatus.musicAudible;
-
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              selectMusicBed(item.id, item.start);
-                            }}
-                            className={`absolute top-0 h-full rounded-md border px-2 text-left text-[10px] ${
-                              isSelected ? styles.active : styles.idle
-                            }`}
-                            style={{ left: `${left}px`, width: `${width}px` }}
-                            title={`${item.title} · ${formatTime(item.duration)}`}
-                          >
-                            <span className="truncate font-semibold">{item.title}</span>
-                            <span className="ml-2 font-mono">{muted ? 'Muted' : `${item.volume}%`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div
-                    className="h-9 rounded-md border border-white/10 bg-white/[0.02] p-1"
-                    onClick={seekFromEvent}
-                  >
-                    <div className="relative h-full">
-                      {virtualizedTitleOverlays.map((item) => {
-                        const width = Math.max(item.duration * timelinePixelsPerSecond, 52);
-                        const left = item.start * timelinePixelsPerSecond;
-                        const isSelected = item.id === selectedTitleId;
-
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              selectTitle(item.id, item.start);
-                            }}
-                            className={`absolute top-0 h-full rounded border px-2 text-left text-[10px] ${
-                              isSelected
-                                ? 'border-fuchsia-200 bg-fuchsia-300/20 text-fuchsia-100'
-                                : 'border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-100'
-                            }`}
-                            style={{ left: `${left}px`, width: `${width}px` }}
-                            title={`${item.text} · ${formatTime(item.duration)}`}
-                          >
-                            <span className="truncate">{item.text}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="border-vv-border bg-vv-base/30 flex h-24 items-center justify-center rounded-lg border-2 border-dashed">
-            <p className="text-vv-muted text-sm">No timeline layers available yet.</p>
-          </div>
-        )}
-
-        {(timeline?.markers.length ?? 0) > 0 && (
-          <div className="mt-3 space-y-2">
-            <p className="text-vv-muted text-[11px] uppercase tracking-wider">Markers</p>
-            <div className="flex flex-wrap gap-2">
-              {(timeline?.markers ?? []).map((marker) => (
-                <div
-                  key={marker.id}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-xs"
-                >
-                  <button
-                    onClick={() => seekTo(marker.time, { disableSnap: true })}
-                    className="inline-flex items-center gap-1"
-                    title="Jump to marker"
-                  >
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: marker.color }}
-                    />
-                    <span>{marker.label}</span>
-                    <span className="text-vv-muted font-mono">{formatTime(marker.time)}</span>
-                  </button>
-                  <button
-                    onClick={() => removeMarker(marker.id)}
-                    className="text-vv-muted hover:text-vv-primary px-1"
-                    title="Delete marker"
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      {visibleModules.chatBar && (
+        <AgentChatBar
+          agentInput={agentInput}
+          agentAutoApply={agentAutoApply}
+          quickCommands={AGENT_QUICK_COMMANDS}
+          onInputChange={setAgentInput}
+          onSubmit={submitAgentInput}
+          onRunCommand={runAgentCommand}
+        />
+      )}
     </div>
   );
 }
