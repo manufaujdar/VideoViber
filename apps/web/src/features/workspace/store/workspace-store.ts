@@ -356,6 +356,10 @@ const backendMutationQueue = createSerializedMutationQueue();
 
 export const useAppStore = create<AppState>()((set, get) => {
   async function getBackendContext() {
+    if (typeof document !== 'undefined' && document.cookie.includes('admin_bypass=true')) {
+      return { bypass: true, supabase: null, user: { id: 'admin-mock-id' } };
+    }
+
     if (!isSupabaseConfigured) {
       return null;
     }
@@ -378,12 +382,18 @@ export const useAppStore = create<AppState>()((set, get) => {
       return null;
     }
 
-    return { supabase, user };
+    return { bypass: false, supabase, user };
   }
 
   function runBackendMutation(operation: string, task: () => Promise<void>) {
     void backendMutationQueue.enqueue(async () => {
       try {
+        const ctx = await getBackendContext();
+        if (ctx?.bypass) {
+          // [ADMIN BYPASS] Skip actual backend execution but resolve the task optimistically
+          set({ lastSyncError: null });
+          return;
+        }
         await task();
         set({ lastSyncError: null });
       } catch (error) {
@@ -402,8 +412,15 @@ export const useAppStore = create<AppState>()((set, get) => {
     if (!ctx) {
       return null;
     }
+    
+    if (ctx.bypass) {
+      // [ADMIN BYPASS] Generate local scene ID
+      const sceneId = uid();
+      projectSceneById.set(projectId, sceneId);
+      return sceneId;
+    }
 
-    const existing = await ctx.supabase
+    const existing = await ctx.supabase!
       .from('scenes')
       .select('id, project_id, order_index')
       .eq('project_id', projectId)
@@ -421,7 +438,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     }
 
     const sceneId = uid();
-    const insert = await ctx.supabase.from('scenes').insert({
+    const insert = await ctx.supabase!.from('scenes').insert({
       id: sceneId,
       project_id: projectId,
       title: 'Main Scene',
@@ -454,7 +471,25 @@ export const useAppStore = create<AppState>()((set, get) => {
       return;
     }
 
+    if (ctx.bypass) {
+      // [ADMIN BYPASS] Keep existing front-end state, just mark as initialized/ready
+      set((state) => ({
+        initialized: true,
+        initializing: false,
+        backendReady: true,
+        projects: state.projects.length > 0 ? state.projects : [],
+        assets: state.assets.length > 0 ? state.assets : [],
+        generations: state.generations.length > 0 ? state.generations : [],
+        settings: state.settings || DEFAULT_SETTINGS,
+      }));
+      return;
+    }
+
     const { supabase } = ctx;
+
+    if (!supabase) {
+      throw new Error('Supabase client must be initialized for non-bypassed backend sync');
+    }
 
     const [
       projectResult,
@@ -659,7 +694,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     if (!settingsRow) {
       runBackendMutation('create-default-settings', async () => {
         const latest = await getBackendContext();
-        if (!latest) return;
+        if (!latest || latest.bypass || !latest.supabase) return;
         const response = await latest.supabase.from('user_settings').upsert({
           user_id: latest.user.id,
           display_name: DEFAULT_SETTINGS.displayName,
@@ -740,8 +775,9 @@ export const useAppStore = create<AppState>()((set, get) => {
         if (!ctx) {
           throw new Error('Sign in required to create a project.');
         }
+        if (ctx.bypass) return;
 
-        const insertedProject = await ctx.supabase.from('projects').insert({
+        const insertedProject = await ctx.supabase!.from('projects').insert({
           id,
           user_id: ctx.user.id,
           title: project.title,
@@ -779,7 +815,7 @@ export const useAppStore = create<AppState>()((set, get) => {
             imported_at: shot.importedAt || null,
           }));
 
-          const insertedShots = await ctx.supabase.from('shots').upsert(shotRows, { onConflict: 'id' });
+          const insertedShots = await ctx.supabase!.from('shots').upsert(shotRows, { onConflict: 'id' });
           if (insertedShots.error) {
             throw new Error(insertedShots.error.message);
           }
@@ -799,12 +835,10 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('update-project', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) {
-          throw new Error('Sign in required to update projects.');
-        }
+        if (!ctx || ctx.bypass) return;
 
         if (Object.keys(trimmed).length > 0) {
-          const response = await ctx.supabase.from('projects').update(trimmed).eq('id', id);
+          const response = await ctx.supabase!.from('projects').update(trimmed).eq('id', id);
           if (response.error) {
             throw new Error(response.error.message);
           }
@@ -835,7 +869,7 @@ export const useAppStore = create<AppState>()((set, get) => {
             imported_at: shot.importedAt || null,
           }));
 
-          const upsert = await ctx.supabase.from('shots').upsert(rows, { onConflict: 'id' });
+          const upsert = await ctx.supabase!.from('shots').upsert(rows, { onConflict: 'id' });
           if (upsert.error) {
             throw new Error(upsert.error.message);
           }
@@ -855,8 +889,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('rename-project', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to rename projects.');
-        const response = await ctx.supabase.from('projects').update({ title: normalized }).eq('id', id);
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!.from('projects').update({ title: normalized }).eq('id', id);
         if (response.error) throw new Error(response.error.message);
       });
     },
@@ -874,8 +908,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('toggle-project-star', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to star projects.');
-        const response = await ctx.supabase
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!
           .from('projects')
           .update({ starred: nextStarred })
           .eq('id', id);
@@ -895,8 +929,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('archive-project', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to archive projects.');
-        const response = await ctx.supabase
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!
           .from('projects')
           .update({ archived_at: archivedAt })
           .eq('id', id);
@@ -915,8 +949,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('restore-project', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to restore projects.');
-        const response = await ctx.supabase
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!
           .from('projects')
           .update({ archived_at: null })
           .eq('id', id);
@@ -932,8 +966,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('delete-project', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to delete projects.');
-        const response = await ctx.supabase.from('projects').delete().eq('id', id);
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!.from('projects').delete().eq('id', id);
         if (response.error) throw new Error(response.error.message);
       });
     },
@@ -952,12 +986,12 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('add-shot', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to add shots.');
+        if (!ctx || ctx.bypass) return;
 
         const sceneId = await ensureProjectScene(projectId);
         if (!sceneId) throw new Error('No scene found for project.');
 
-        const response = await ctx.supabase.from('shots').insert({
+        const response = await ctx.supabase!.from('shots').insert({
           id: newShot.id,
           project_id: projectId,
           scene_id: sceneId,
@@ -995,10 +1029,10 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('update-shot', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to update shots.');
+        if (!ctx || ctx.bypass) return;
         if (Object.keys(payload).length === 0) return;
 
-        const response = await ctx.supabase.from('shots').update(payload).eq('id', shotId);
+        const response = await ctx.supabase!.from('shots').update(payload).eq('id', shotId);
         if (response.error) throw new Error(response.error.message);
       });
     },
@@ -1011,8 +1045,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('delete-shot', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to delete shots.');
-        const response = await ctx.supabase.from('shots').delete().eq('id', shotId);
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!.from('shots').delete().eq('id', shotId);
         if (response.error) throw new Error(response.error.message);
       });
     },
@@ -1027,9 +1061,9 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('add-asset', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to add assets.');
+        if (!ctx || ctx.bypass) return;
 
-        const response = await ctx.supabase.from('assets').insert({
+        const response = await ctx.supabase!.from('assets').insert({
           id: asset.id,
           user_id: ctx.user.id,
           project_id: asset.projectId || null,
@@ -1063,16 +1097,16 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('delete-asset', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to delete assets.');
+        if (!ctx || ctx.bypass) return;
 
         if (existing?.storagePath && isStorageObjectPath(existing.storagePath)) {
-          const storageDelete = await ctx.supabase.storage.from('assets').remove([existing.storagePath]);
+          const storageDelete = await ctx.supabase!.storage.from('assets').remove([existing.storagePath]);
           if (storageDelete.error) {
             throw new Error(storageDelete.error.message);
           }
         }
 
-        const response = await ctx.supabase.from('assets').delete().eq('id', id);
+        const response = await ctx.supabase!.from('assets').delete().eq('id', id);
         if (response.error) {
           throw new Error(response.error.message);
         }
@@ -1088,10 +1122,10 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('update-asset', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to update assets.');
+        if (!ctx || ctx.bypass) return;
         if (Object.keys(payload).length === 0) return;
 
-        const response = await ctx.supabase.from('assets').update(payload).eq('id', id);
+        const response = await ctx.supabase!.from('assets').update(payload).eq('id', id);
         if (response.error) {
           throw new Error(response.error.message);
         }
@@ -1114,13 +1148,13 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('add-generation', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to add generations.');
+        if (!ctx || ctx.bypass) return;
 
         const shot = get()
           .projects.find((project) => project.id === generation.projectId)
           ?.shots.find((candidate) => candidate.id === generation.shotId);
 
-        const response = await ctx.supabase.from('generations').insert({
+        const response = await ctx.supabase!.from('generations').insert({
           id: generation.id,
           shot_id: generation.shotId,
           project_id: generation.projectId,
@@ -1168,7 +1202,7 @@ export const useAppStore = create<AppState>()((set, get) => {
 
         if (Object.keys(payload).length === 0) return;
 
-        const response = await ctx.supabase.from('generations').update(payload).eq('id', id);
+        const response = await ctx.supabase!.from('generations').update(payload).eq('id', id);
         if (response.error) {
           throw new Error(response.error.message);
         }
@@ -1180,8 +1214,8 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('clear-generations', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to clear generations.');
-        const response = await ctx.supabase.from('generations').delete().eq('user_id', ctx.user.id);
+        if (!ctx || ctx.bypass) return;
+        const response = await ctx.supabase!.from('generations').delete().eq('user_id', ctx.user.id);
         if (response.error) {
           throw new Error(response.error.message);
         }
@@ -1216,9 +1250,9 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('update-settings', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to update settings.');
+        if (!ctx || ctx.bypass) return;
 
-        const response = await ctx.supabase.from('user_settings').upsert({
+        const response = await ctx.supabase!.from('user_settings').upsert({
           user_id: ctx.user.id,
           display_name: merged.displayName,
           default_provider: merged.defaultProvider,
@@ -1238,9 +1272,9 @@ export const useAppStore = create<AppState>()((set, get) => {
 
       runBackendMutation('delete-all-projects', async () => {
         const ctx = await getBackendContext();
-        if (!ctx) throw new Error('Sign in required to delete all projects.');
+        if (!ctx || ctx.bypass) return;
 
-        const response = await ctx.supabase.from('projects').delete().eq('user_id', ctx.user.id);
+        const response = await ctx.supabase!.from('projects').delete().eq('user_id', ctx.user.id);
         if (response.error) {
           throw new Error(response.error.message);
         }

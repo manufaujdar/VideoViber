@@ -85,6 +85,24 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: '/audio-studio',
+    label: 'Audio Studio',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/media-library',
+    label: 'Media Library',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-2.625 0V4.125c0-.621.504-1.125 1.125-1.125h15.75c.621 0 1.125.504 1.125 1.125v14.25c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m16.5 0h-1.5m0 0h-13.5m13.5 0v-3.375c0-.621-.504-1.125-1.125-1.125h-2.25c-.621 0-1.125.504-1.125 1.125v3.375" />
+      </svg>
+    ),
+  },
 ];
 
 const accountNavItems = [
@@ -279,6 +297,8 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
     if (pathname.startsWith('/settings')) return 'Settings';
     if (pathname.startsWith('/generations')) return 'Generations';
     if (pathname.startsWith('/assets')) return 'Assets';
+    if (pathname.startsWith('/audio-studio')) return 'Audio Studio';
+    if (pathname.startsWith('/media-library')) return 'Media Library';
     return 'Dashboard';
   }, [pathname]);
 

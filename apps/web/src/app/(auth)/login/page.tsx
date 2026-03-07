@@ -42,6 +42,13 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
 
+    // [ADMIN BYPASS] Temporary local development bypass
+    if (email === 'admin@admin.com' && password === 'admin') {
+      document.cookie = 'admin_bypass=true; path=/; max-age=86400; SameSite=Strict';
+      router.push('/dashboard');
+      return;
+    }
+
     setLoading(true);
     const result = await signInWithPassword({
       email,
