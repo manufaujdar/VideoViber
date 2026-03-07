@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface UseAgentOptions<T> {
   endpoint: string;
@@ -23,13 +23,17 @@ export function useAgent<TInput, TOutput>(
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TOutput | null>(null);
 
+  // Store options in a ref to avoid re-creating the callback on every render
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const call = useCallback(
     async (input: TInput): Promise<TOutput | null> => {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(options.endpoint, {
+        const response = await fetch(optionsRef.current.endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
@@ -46,18 +50,18 @@ export function useAgent<TInput, TOutput>(
 
         const result = (await response.json()) as TOutput;
         setData(result);
-        options.onSuccess?.(result);
+        optionsRef.current.onSuccess?.(result);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Agent call failed';
         setError(message);
-        options.onError?.(message);
+        optionsRef.current.onError?.(message);
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [options]
+    [] // stable — no deps, uses ref internally
   );
 
   const reset = useCallback(() => {

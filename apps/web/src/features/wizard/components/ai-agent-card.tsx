@@ -9,6 +9,7 @@ interface AiAgentCardProps {
   error: string | null;
   onTrigger: () => void;
   disabled?: boolean;
+  loadingText?: string;
   children?: ReactNode;
 }
 
@@ -19,6 +20,7 @@ export function AiAgentCard({
   error,
   onTrigger,
   disabled,
+  loadingText = 'Analyzing…',
   children,
 }: AiAgentCardProps) {
   return (
@@ -73,7 +75,7 @@ export function AiAgentCard({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              Analyzing…
+              {loadingText}
             </>
           ) : (
             <>

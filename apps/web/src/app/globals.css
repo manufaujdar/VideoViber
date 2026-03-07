@@ -574,3 +574,12 @@ html.vv-low-motion .vv-sidebar-shell {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

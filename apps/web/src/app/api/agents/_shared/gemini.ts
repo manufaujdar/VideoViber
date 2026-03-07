@@ -82,7 +82,7 @@ export async function callGeminiAgent(options: AgentCallOptions): Promise<AgentR
         generationConfig,
       }),
     },
-    30_000
+    60_000
   );
 
   if (!response.ok) {

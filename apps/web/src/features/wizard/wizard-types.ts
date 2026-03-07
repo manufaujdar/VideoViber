@@ -145,15 +145,46 @@ export interface ContextBible {
   visualIdentity: string;
 }
 
-/* ─── Stage 8+: Future types ───────────────────────────── */
+/* ─── Stage 8: Asset Intake ────────────────────────────── */
+
+export interface UploadedAsset {
+  id: string;
+  fileName: string;
+  fileType: 'image' | 'video' | 'audio' | 'document';
+  url: string;
+  storagePath: string;
+  sizeBytes: number;
+  description: string;
+}
+
+export interface AssetIntakeData {
+  uploadedAssets: UploadedAsset[];
+  referenceNotes: string;
+}
+
+export const emptyAssetIntake: AssetIntakeData = {
+  uploadedAssets: [],
+  referenceNotes: '',
+};
+
+/* ─── Stage 9: Concept Variations ──────────────────────── */
 
 export interface ConceptDirection {
   id: string;
   name: string;
   description: string;
   approach: string;
+  visualMood: string;
+  narrativeStyle: string;
   selected: boolean;
 }
+
+export interface ConceptVariations {
+  directions: ConceptDirection[];
+  selectedId: string | null;
+}
+
+/* ─── Stage 10: Script + Critique ──────────────────────── */
 
 export interface ScriptDraft {
   hook: string;
@@ -206,4 +237,61 @@ export interface ReadinessReport {
   overallStatus: 'ready' | 'warnings' | 'not_ready';
   checks: ReadinessCheckItem[];
   summary: string;
+}
+
+/* ─── Stage 11: Scene Breakdown ───────────────────────── */
+
+export interface SceneBreakdown {
+  scenes: SceneItem[];
+  totalDuration: number;
+  sceneCount: number;
+}
+
+/* ─── Stage 12: Shot Plan ─────────────────────────────── */
+
+export interface ShotPlan {
+  shots: ShotItem[];
+  totalShots: number;
+  estimatedRenderTime: string;
+}
+
+/* ─── Stage 13: Audio & Effects ───────────────────────── */
+
+export interface AudioTrack {
+  id: string;
+  type: 'music' | 'sfx' | 'voiceover' | 'ambient';
+  label: string;
+  description: string;
+  startTime: number;
+  duration: number;
+  sceneId: string;
+  volume: number;
+  source: string;
+}
+
+export interface AudioPlan {
+  tracks: AudioTrack[];
+  voiceoverScript: string;
+  musicMood: string;
+  overallNotes: string;
+}
+
+/* ─── Stage 14: Timeline Review ───────────────────────── */
+
+export interface TimelineEntry {
+  id: string;
+  type: 'scene' | 'shot' | 'audio' | 'transition';
+  label: string;
+  startTime: number;
+  duration: number;
+  sceneId?: string;
+  shotId?: string;
+  details: string;
+}
+
+export interface TimelineReview {
+  entries: TimelineEntry[];
+  totalDuration: number;
+  warnings: string[];
+  approved: boolean;
 }

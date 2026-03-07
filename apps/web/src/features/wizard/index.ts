@@ -1,4 +1,4 @@
-export { useWizardStore, type WizardState } from './wizard-store';
+export { useWizardStore, hasInProgressSession, type WizardState } from './wizard-store';
 export { WIZARD_PAGES, PAGE_GROUPS, TOTAL_PAGES, PLATFORMS, VIDEO_GOALS, STYLE_PRESETS } from './wizard-constants';
 export type { WizardPageDef } from './wizard-constants';
 export {

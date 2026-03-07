@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useWizardStore } from '@/features/wizard/wizard-store';
 import { useAppStore } from '@/features/workspace';
 import { toast } from 'sonner';
 
 export default function CreateProjectPage() {
-  const router = useRouter();
   const ideaIntake = useWizardStore((s) => s.ideaIntake);
   const requirementReport = useWizardStore((s) => s.requirementReport);
   const researchSummary = useWizardStore((s) => s.researchSummary);
