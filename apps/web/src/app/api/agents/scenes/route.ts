@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'scenes');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const { scriptDraft, contextBible, strategyBrief } = body;
 
     const systemPrompt = `You are a scene architect who breaks scripts into production-ready scenes for AI video generation.
@@ -59,7 +66,7 @@ Rules:
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Scene breakdown failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

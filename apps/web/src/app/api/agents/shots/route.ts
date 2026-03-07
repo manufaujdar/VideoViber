@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'shots');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const { sceneBreakdown, contextBible, selectedConcept } = body;
 
     const systemPrompt = `You are a shot planner for AI video generation. For each scene, create detailed shot descriptions optimized for AI generation prompts.
@@ -61,7 +68,7 @@ Rules:
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Shot planning failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

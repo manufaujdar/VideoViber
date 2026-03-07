@@ -71,6 +71,18 @@ If you see runtime chunk errors such as `Cannot find module './46.js'`, clear st
 pnpm --filter @videoviber/web dev:reset
 ```
 
+## Security Hygiene
+
+- Never commit real secrets to tracked files. Keep secrets only in local env files.
+- Run secret scanning before sharing code or logs:
+
+```bash
+pnpm security:scan-secrets
+```
+
+- CI also enforces this scan on every push/PR.
+- Rotate any API key immediately if it has been exposed in chat, logs, screenshots, or shared snippets.
+
 ---
 
 ## Repo Structure

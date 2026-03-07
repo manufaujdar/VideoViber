@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'script');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const { rawIdea, requirementReport, strategyBrief, contextBible, selectedConcept } = body;
 
     const systemPrompt = `You are a professional script writer for video production. Write a complete script draft based on the approved concept direction, strategy, and context bible.
@@ -54,7 +61,7 @@ Writing rules:
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Script writing failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'requirement');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const { rawIdea, targetPlatform, roughAudience, videoGoal, preferredStyle, referenceLinks } = body;
 
     if (!rawIdea || typeof rawIdea !== 'string' || rawIdea.trim().length < 5) {
@@ -60,7 +67,7 @@ Be specific, actionable, and professional. Infer what you can from the input, an
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Requirement analysis failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

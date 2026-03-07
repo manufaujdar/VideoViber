@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'qa');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const {
       strategyBrief,
       contextBible,
@@ -73,7 +80,7 @@ Be strict but fair. Mark "fail" only for critical issues.`;
       assumptions: [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'QA readiness check failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

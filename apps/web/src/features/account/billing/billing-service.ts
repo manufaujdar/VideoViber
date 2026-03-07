@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { toPublicErrorMessage } from '@/lib/redaction';
 import type { BillingActionResult, BillingSummary } from './types';
 import {
   summarizeBillingPeriod,
@@ -121,6 +122,8 @@ async function parsePortalResponse(response: Response) {
 export async function requestBillingPortalUrl(): Promise<BillingActionResult<{ url: string }>> {
   const response = await fetch('/api/billing/portal', {
     method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -130,9 +133,10 @@ export async function requestBillingPortalUrl(): Promise<BillingActionResult<{ u
   if (!response.ok) {
     return {
       ok: false,
-      error:
-        (typeof payload?.error === 'string' && payload.error) ||
-        `Failed to open billing portal (${response.status}).`,
+      error: toPublicErrorMessage(
+        typeof payload?.error === 'string' ? payload.error : '',
+        `Failed to open billing portal (${response.status}).`
+      ),
     };
   }
 

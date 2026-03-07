@@ -1,4 +1,4 @@
-const CACHE_NAME = 'studiocloud-cache-v1';
+const CACHE_NAME = 'studiocloud-cache-v2';
 
 // Assets that must be cached immediately
 const PRECACHE_ASSETS = [
@@ -7,6 +7,25 @@ const PRECACHE_ASSETS = [
   // Next.js chunks will be cached via the stale-while-revalidate strategy dynamically
 ];
 
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/about',
+  '/blog',
+  '/careers',
+  '/contact',
+  '/features',
+  '/forgot-password',
+  '/login',
+  '/pricing',
+  '/privacy',
+  '/security',
+  '/showcase',
+  '/signup',
+  '/terms',
+]);
+
+const PUBLIC_PREFIXES = ['/blog/', '/showcase/'];
+
 // Helper to determine if a request is for a static asset
 const isStaticAsset = (url) => {
   return (
@@ -14,6 +33,27 @@ const isStaticAsset = (url) => {
     url.pathname.startsWith('/static/') ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|webp|woff|woff2|ttf|otf|css|js)$/i)
   );
+};
+
+const isPublicNavigation = (url) => {
+  if (PUBLIC_PATHS.has(url.pathname)) {
+    return true;
+  }
+
+  return PUBLIC_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+};
+
+const canStoreNavigationResponse = (response) => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  const cacheControl = (response.headers.get('cache-control') || '').toLowerCase();
+  if (cacheControl.includes('no-store') || cacheControl.includes('private')) {
+    return false;
+  }
+
+  return true;
 };
 
 self.addEventListener('install', (event) => {
@@ -77,13 +117,18 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
-          });
+          if (isPublicNavigation(url) && canStoreNavigationResponse(networkResponse)) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, clone);
+            });
+          }
           return networkResponse;
         })
         .catch(async () => {
+          if (!isPublicNavigation(url)) {
+            return new Response('Offline', { status: 503, statusText: 'Offline' });
+          }
           const cachedResponse = await caches.match(event.request);
           if (cachedResponse) {
              return cachedResponse;

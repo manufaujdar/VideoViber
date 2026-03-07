@@ -11,6 +11,8 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "security:scan-secrets": "node scripts/scan-secrets.cjs",
+    "security:scan-secrets:staged": "node scripts/scan-secrets.cjs --staged",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "prepare": "husky",

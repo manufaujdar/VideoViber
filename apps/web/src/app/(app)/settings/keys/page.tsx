@@ -6,11 +6,11 @@ import {
   providerCatalog,
   type ProviderRuntimeHealth,
 } from '@/lib/providers';
+import { redactSensitiveText } from '@/lib/redaction';
 
 type GeminiDiagnostics = {
   checkedAt: string;
   keyConfigured: boolean;
-  keySource?: string;
   veoModel: string;
   plannerModel: string;
   keyValid: boolean;
@@ -33,7 +33,11 @@ export default function ApiKeysPage() {
 
     const loadHealth = async () => {
       try {
-        const response = await fetch('/api/generate?diagnostics=deep', { method: 'GET' });
+        const response = await fetch('/api/generate?diagnostics=deep', {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
         if (!response.ok) {
           return;
         }
@@ -59,7 +63,15 @@ export default function ApiKeysPage() {
         }
 
         if (payload?.diagnostics?.gemini && typeof payload.diagnostics.gemini === 'object') {
-          setGeminiDiagnostics(payload.diagnostics.gemini as GeminiDiagnostics);
+          const raw = payload.diagnostics.gemini as GeminiDiagnostics;
+          setGeminiDiagnostics({
+            ...raw,
+            error: raw.error ? redactSensitiveText(raw.error, 300) : undefined,
+            hint: raw.hint ? redactSensitiveText(raw.hint, 300) : undefined,
+            providerStatus: raw.providerStatus
+              ? redactSensitiveText(raw.providerStatus, 80)
+              : undefined,
+          });
         }
       } catch {
         // Keep defaults if API diagnostics endpoint is unavailable.
@@ -213,7 +225,7 @@ export default function ApiKeysPage() {
               {geminiDiagnostics.healthy ? 'Ready for Veo Calls' : 'Needs Attention'}
             </span>
             <span className="vv-badge bg-blue-500/10 text-blue-300">
-              Key Source: {geminiDiagnostics.keySource || 'missing'}
+              Key Configured: {geminiDiagnostics.keyConfigured ? 'yes' : 'no'}
             </span>
             <span className="vv-badge bg-indigo-500/10 text-indigo-300">
               Veo Model: {geminiDiagnostics.veoModel}

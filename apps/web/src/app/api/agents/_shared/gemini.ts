@@ -1,3 +1,5 @@
+import { toPublicErrorMessage } from '@/lib/redaction';
+
 /* ─── Shared Gemini Agent Caller ─────────────────────────
  * Extracted from /api/generate/route.ts for reuse across
  * all agent API routes. Server-side only.
@@ -5,6 +7,8 @@
 
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
 const AGENT_MODEL = 'gemini-2.0-flash';
+const MAX_AGENT_USER_CONTENT_CHARS = 16_000;
+const MAX_AGENT_SYSTEM_PROMPT_CHARS = 12_000;
 
 export type GeminiKeySource =
   | 'GEMINI_API_KEY'
@@ -52,6 +56,25 @@ export async function callGeminiAgent(options: AgentCallOptions): Promise<AgentR
     );
   }
 
+  const systemPrompt = options.systemPrompt.trim();
+  const userContent = options.userContent.trim();
+
+  if (!systemPrompt) {
+    throw new Error('Agent system prompt is empty.');
+  }
+
+  if (!userContent) {
+    throw new Error('Agent request body is empty.');
+  }
+
+  if (systemPrompt.length > MAX_AGENT_SYSTEM_PROMPT_CHARS) {
+    throw new Error('Agent system prompt is too large.');
+  }
+
+  if (userContent.length > MAX_AGENT_USER_CONTENT_CHARS) {
+    throw new Error('Agent request is too large. Reduce input size and retry.');
+  }
+
   const generationConfig: Record<string, unknown> = {
     temperature: options.temperature ?? 0.7,
     topP: 0.95,
@@ -72,11 +95,11 @@ export async function callGeminiAgent(options: AgentCallOptions): Promise<AgentR
       },
       body: JSON.stringify({
         systemInstruction: {
-          parts: [{ text: options.systemPrompt }],
+          parts: [{ text: systemPrompt }],
         },
         contents: [
           {
-            parts: [{ text: options.userContent }],
+            parts: [{ text: userContent }],
           },
         ],
         generationConfig,
@@ -92,7 +115,7 @@ export async function callGeminiAgent(options: AgentCallOptions): Promise<AgentR
       const parsed = JSON.parse(text);
       message = parsed?.error?.message || message;
     } catch { /* keep default */ }
-    throw new Error(message);
+    throw new Error(toPublicErrorMessage(message, `Gemini request failed (${response.status})`, 420));
   }
 
   const data = await response.json();

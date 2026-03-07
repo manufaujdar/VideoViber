@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callGeminiAgent, parseAgentJson } from '../_shared/gemini';
+import { parseGuardedAgentBody } from '../_shared/request';
+import { toAgentErrorMessage } from '../_shared/errors';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsedRequest = await parseGuardedAgentBody(request, 'strategy');
+    if (!parsedRequest.ok) {
+      return parsedRequest.response;
+    }
+
+    const body = parsedRequest.body;
     const { requirementReport, researchSummary, rawIdea, targetPlatform, videoGoal } = body;
 
     const systemPrompt = `You are a strategic content planner for video production. Create a comprehensive strategic plan based on the approved project requirements and research.
@@ -49,7 +56,7 @@ Be specific, professional, and creative. Use production terminology where approp
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Strategy planning failed';
+    const message = toAgentErrorMessage(error, 'Agent request failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { toPublicErrorMessage } from '@/lib/redaction';
 
 interface UseAgentOptions<T> {
   endpoint: string;
@@ -35,6 +36,8 @@ export function useAgent<TInput, TOutput>(
       try {
         const response = await fetch(optionsRef.current.endpoint, {
           method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
         });
@@ -45,7 +48,7 @@ export function useAgent<TInput, TOutput>(
             const errBody = await response.json();
             message = errBody?.error || errBody?.message || message;
           } catch { /* keep default */ }
-          throw new Error(message);
+          throw new Error(toPublicErrorMessage(message, `Agent request failed (${response.status})`));
         }
 
         const result = (await response.json()) as TOutput;
@@ -53,7 +56,7 @@ export function useAgent<TInput, TOutput>(
         optionsRef.current.onSuccess?.(result);
         return result;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Agent call failed';
+        const message = toPublicErrorMessage(err, 'Agent call failed');
         setError(message);
         optionsRef.current.onError?.(message);
         return null;

@@ -6,6 +6,7 @@ import { parsePlannerShots } from '@/lib/shot-planner';
 import { useAppStore } from '@/features/workspace';
 import { uploadAssetFile } from '@/lib/asset-upload';
 import { MotionImage } from '@/components/motion-image';
+import { redactSensitiveText } from '@/lib/redaction';
 import { toast } from 'sonner';
 
 async function readResponsePayload(response: Response) {
@@ -35,10 +36,10 @@ function toApiErrorMessage(payload: any, fallback: string) {
     null;
 
   if (typeof hint === 'string' && hint.trim().length > 0 && !String(base).includes(hint)) {
-    return `${base} ${hint}`.trim();
+    return redactSensitiveText(`${base} ${hint}`.trim(), 320);
   }
 
-  return base;
+  return redactSensitiveText(String(base), 320);
 }
 
 const MIN_IMPORT_DURATION = 0.5;
@@ -100,6 +101,8 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: shot.prompt,
@@ -138,7 +141,11 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
             });
 
             const statusResponse = await fetch(
-              `/api/generate?operationName=${encodeURIComponent(operationName)}`
+              `/api/generate?operationName=${encodeURIComponent(operationName)}`,
+              {
+                credentials: 'same-origin',
+                cache: 'no-store',
+              }
             );
             const statusPayload = await readResponsePayload(statusResponse);
 

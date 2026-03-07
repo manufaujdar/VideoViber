@@ -1,6 +1,8 @@
 import { ProviderId } from '@videoviber/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { guardApiRequest, parseJsonBodyWithLimit } from '@/app/api/_shared/request-guard';
+import { redactSensitiveText, toPublicErrorMessage } from '@/lib/redaction';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,6 +46,13 @@ const plannerModel = 'gemini-2.0-flash';
 const defaultVeoModel = 'veo-3.1-generate-preview';
 const veoSupportedDurations = [4, 6, 8] as const;
 const veoSupportedAspectRatios = ['16:9', '9:16'] as const;
+const MAX_JSON_BODY_BYTES = 64 * 1024;
+const MAX_PROXY_VIDEO_BYTES = 250 * 1024 * 1024;
+const OPERATION_NAME_PATTERN = /^(?:operations|projects\/[a-zA-Z0-9._-]+\/locations\/[a-zA-Z0-9._-]+\/operations)\/[a-zA-Z0-9._:-]+$/;
+const ALLOWED_VIDEO_URI_HOSTS = new Set([
+  'generativelanguage.googleapis.com',
+  'storage.googleapis.com',
+]);
 
 type GeminiKeySource =
   | 'GEMINI_API_KEY'
@@ -136,14 +145,13 @@ function buildVeoPrompt(input: GenerateRequest) {
 }
 
 function providerHealth() {
-  const { apiKey: geminiApiKey, source: geminiKeySource } = resolveGeminiApiKeyInfo();
+  const { apiKey: geminiApiKey } = resolveGeminiApiKeyInfo();
 
   return [
     {
       id: ProviderId.GEMINI,
       configured: Boolean(geminiApiKey),
       serverImplemented: true,
-      keySource: geminiKeySource,
     },
     {
       id: ProviderId.RUNWAY,
@@ -154,7 +162,6 @@ function providerHealth() {
       id: ProviderId.VEO,
       configured: Boolean(geminiApiKey),
       serverImplemented: true,
-      keySource: geminiKeySource,
       model: resolveVeoModel(),
     },
     {
@@ -310,14 +317,14 @@ function isAbortError(error: unknown) {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
+  return toPublicErrorMessage(error, fallback, 420);
 }
 
 function trimMessage(value: string | undefined, maxLength = 600) {
   if (!value) {
     return undefined;
   }
-  const clean = value.trim().replace(/\s+/g, ' ');
+  const clean = redactSensitiveText(value, maxLength);
   if (clean.length <= maxLength) {
     return clean;
   }
@@ -375,7 +382,7 @@ async function parseGeminiApiError(response: Response): Promise<GeminiApiError> 
     httpStatus: response.status,
     status: parsedStatus,
     message: trimMessage(parsedMessage || rawText, 700),
-    rawText,
+    rawText: redactSensitiveText(rawText, 1800),
   };
 }
 
@@ -384,6 +391,20 @@ function keySignature(apiKey: string) {
     return apiKey;
   }
   return apiKey.slice(-8);
+}
+
+function normalizeOperationName(value: string) {
+  return value.replace(/^\/+/, '').trim();
+}
+
+function isValidOperationName(value: string) {
+  const normalized = normalizeOperationName(value);
+  return normalized.length <= 240 && OPERATION_NAME_PATTERN.test(normalized);
+}
+
+function redactGeminiDiagnostics(diagnostics: GeminiDiagnostics) {
+  const { keySource: _keySource, ...rest } = diagnostics;
+  return rest;
 }
 
 function parseVeoVideoUri(operation: unknown): string | undefined {
@@ -411,7 +432,7 @@ function parseVeoVideoUri(operation: unknown): string | undefined {
 }
 
 async function generateShotPlanWithGemini(input: GenerateRequest) {
-  const { apiKey, source } = resolveGeminiApiKeyInfo();
+  const { apiKey } = resolveGeminiApiKeyInfo();
 
   if (!apiKey) {
     return NextResponse.json(
@@ -485,7 +506,6 @@ async function generateShotPlanWithGemini(input: GenerateRequest) {
         error: apiError.message || `Gemini API request failed (${response.status}).`,
         provider: ProviderId.GEMINI,
         model: plannerModel,
-        keySource: source,
         providerStatus: apiError.status,
         hint: buildGeminiHint(apiError, ProviderId.GEMINI, plannerModel),
         details:
@@ -533,7 +553,7 @@ async function generateShotPlanWithGemini(input: GenerateRequest) {
 }
 
 async function startVeoGenerationWithGemini(input: GenerateRequest) {
-  const { apiKey, source } = resolveGeminiApiKeyInfo();
+  const { apiKey } = resolveGeminiApiKeyInfo();
 
   if (!apiKey) {
     return NextResponse.json(
@@ -558,7 +578,6 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
           'Gemini key validation failed. Unable to confirm API access for Veo generation.',
         provider: ProviderId.VEO,
         model,
-        keySource: source,
         providerStatus: diagnostics.providerStatus,
         hint: diagnostics.hint,
       },
@@ -572,7 +591,6 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
         error: `Configured Veo model "${model}" is unavailable for the active API key.`,
         provider: ProviderId.VEO,
         model,
-        keySource: source,
         hint:
           diagnostics.hint ||
           `Set GEMINI_VEO_MODEL to a model that supports predictLongRunning, then restart the server.`,
@@ -623,7 +641,6 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
         error: apiError.message || `Veo request failed (${response.status}).`,
         provider: ProviderId.VEO,
         model,
-        keySource: source,
         providerStatus: apiError.status,
         hint: buildGeminiHint(apiError, ProviderId.VEO, model),
         details:
@@ -667,18 +684,26 @@ async function startVeoGenerationWithGemini(input: GenerateRequest) {
 async function getVeoOperationStatus(operationName: string): Promise<VeoStatusPayload> {
   const apiKey = resolveGeminiApiKey();
   const model = resolveVeoModel();
+  const safeName = normalizeOperationName(operationName);
+
+  if (!isValidOperationName(safeName)) {
+    return {
+      operationName: safeName || operationName,
+      status: 'failed',
+      details: 'Invalid operation name format.',
+      httpStatus: 400,
+    };
+  }
 
   if (!apiKey) {
     return {
-      operationName,
+      operationName: safeName,
       status: 'failed',
       details:
         'Gemini API key missing on server. Set GEMINI_API_KEY or GOOGLE_API_KEY (or GOOGLE_GENAI_API_KEY) in production.',
       hint: 'Add a valid Gemini API key and restart the server before polling operation status.',
     };
   }
-
-  const safeName = operationName.replace(/^\/+/, '');
   let response: Response;
   try {
     response = await fetchWithTimeout(
@@ -851,11 +876,28 @@ function isAllowedGoogleVideoUri(videoUri: string) {
       return false;
     }
 
-    return (
-      parsed.hostname === 'generativelanguage.googleapis.com' ||
-      parsed.hostname.endsWith('.googleapis.com') ||
-      parsed.hostname.endsWith('.googleusercontent.com')
-    );
+    if (parsed.username || parsed.password || parsed.port) {
+      return false;
+    }
+
+    if (videoUri.length > 2000) {
+      return false;
+    }
+
+    if (parsed.searchParams.has('key') || parsed.searchParams.has('x-goog-api-key')) {
+      return false;
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    if (ALLOWED_VIDEO_URI_HOSTS.has(host)) {
+      return parsed.pathname.startsWith('/v1beta/') || parsed.pathname.includes('/download/');
+    }
+
+    if (host.endsWith('.googleusercontent.com')) {
+      return parsed.pathname.toLowerCase().includes('.mp4') || parsed.pathname.includes('/download/');
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -923,10 +965,33 @@ async function proxyGeneratedVideo(videoUri: string) {
 
   const contentType = response.headers.get('content-type') || 'video/mp4';
   const contentLength = response.headers.get('content-length');
+  const normalizedType = contentType.toLowerCase();
+
+  if (!normalizedType.startsWith('video/') && !normalizedType.includes('application/octet-stream')) {
+    return NextResponse.json(
+      {
+        error: 'Unexpected response type from provider while fetching generated video.',
+      },
+      { status: 502 }
+    );
+  }
+
+  if (contentLength) {
+    const length = Number(contentLength);
+    if (Number.isFinite(length) && length > MAX_PROXY_VIDEO_BYTES) {
+      return NextResponse.json(
+        {
+          error: 'Generated video is too large to proxy safely.',
+        },
+        { status: 413 }
+      );
+    }
+  }
 
   const headers = new Headers({
     'Content-Type': contentType,
     'Cache-Control': 'private, max-age=300',
+    'X-Content-Type-Options': 'nosniff',
   });
 
   if (contentLength) {
@@ -940,9 +1005,30 @@ async function proxyGeneratedVideo(videoUri: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = guardApiRequest(request, {
+    requireSameOrigin: true,
+    requireSessionInProduction: true,
+    rateLimit: {
+      scope: 'api:generate:post',
+      limit: 15,
+      windowMs: 60_000,
+    },
+  });
+
+  if (!guard.ok) {
+    return guard.response;
+  }
+
   try {
-    const json = await request.json();
-    const parsed = requestSchema.safeParse(json);
+    const parsedBody = await parseJsonBodyWithLimit<Record<string, unknown>>(
+      request,
+      MAX_JSON_BODY_BYTES
+    );
+    if (!parsedBody.ok) {
+      return parsedBody.response;
+    }
+
+    const parsed = requestSchema.safeParse(parsedBody.data);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -966,9 +1052,24 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!isValidOperationName(input.operationName)) {
+        return NextResponse.json(
+          {
+            error: 'operationName format is invalid.',
+          },
+          { status: 400 }
+        );
+      }
+
       const status = await getVeoOperationStatus(input.operationName);
       const statusCode =
-        status.status === 'completed' ? 200 : status.status === 'processing' ? 202 : 502;
+        status.status === 'completed'
+          ? 200
+          : status.status === 'processing'
+            ? 202
+            : status.httpStatus && status.httpStatus >= 400 && status.httpStatus < 600
+              ? status.httpStatus
+              : 502;
 
       return NextResponse.json(
         {
@@ -1065,7 +1166,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to process generation request.',
         details:
           process.env.NODE_ENV === 'development' && error instanceof Error
-            ? error.message
+            ? toPublicErrorMessage(error, 'Unknown error', 600)
             : undefined,
       },
       { status: 500 }
@@ -1074,19 +1175,56 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const guard = guardApiRequest(request, {
+    requireSameOrigin: true,
+    requireSessionInProduction: true,
+    rateLimit: {
+      scope: 'api:generate:get',
+      limit: 60,
+      windowMs: 60_000,
+    },
+  });
+
+  if (!guard.ok) {
+    return guard.response;
+  }
+
   try {
     const operationName = request.nextUrl.searchParams.get('operationName');
     const videoUri = request.nextUrl.searchParams.get('videoUri');
     const diagnosticsMode = request.nextUrl.searchParams.get('diagnostics');
 
     if (videoUri) {
+      if (videoUri.length > 2000) {
+        return NextResponse.json(
+          {
+            error: 'videoUri is too long.',
+          },
+          { status: 400 }
+        );
+      }
       return proxyGeneratedVideo(videoUri);
     }
 
     if (operationName) {
+      if (!isValidOperationName(operationName)) {
+        return NextResponse.json(
+          {
+            error: 'operationName format is invalid.',
+          },
+          { status: 400 }
+        );
+      }
+
       const status = await getVeoOperationStatus(operationName);
       const statusCode =
-        status.status === 'completed' ? 200 : status.status === 'processing' ? 202 : 502;
+        status.status === 'completed'
+          ? 200
+          : status.status === 'processing'
+            ? 202
+            : status.httpStatus && status.httpStatus >= 400 && status.httpStatus < 600
+              ? status.httpStatus
+              : 502;
 
       return NextResponse.json(
         {
@@ -1102,7 +1240,6 @@ export async function GET(request: NextRequest) {
     const providers = providerHealth();
     const includeDeepDiagnostics = diagnosticsMode === 'deep' || diagnosticsMode === 'full';
     const geminiDiagnostics = includeDeepDiagnostics ? await runGeminiDiagnostics() : undefined;
-    const { source: activeGeminiKeySource } = resolveGeminiApiKeyInfo();
 
     return NextResponse.json({
       status: 'ok',
@@ -1111,22 +1248,18 @@ export async function GET(request: NextRequest) {
       configuredProviders: providers.filter((p) => p.configured).map((p) => p.id),
       diagnostics: geminiDiagnostics
         ? {
-            gemini: geminiDiagnostics,
+            gemini: redactGeminiDiagnostics(geminiDiagnostics),
           }
         : undefined,
-      keyHints: {
-        gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_API_KEY', 'VEO_API_KEY'],
-        veoModel: resolveVeoModel(),
-        plannerModel,
-        activeGeminiKeySource,
-      },
     });
   } catch (error) {
     return NextResponse.json(
       {
         error: 'Failed to process diagnostics request.',
         details:
-          process.env.NODE_ENV === 'development' ? getErrorMessage(error, 'Unknown error') : undefined,
+          process.env.NODE_ENV === 'development'
+            ? toPublicErrorMessage(error, 'Unknown error', 600)
+            : undefined,
       },
       { status: 500 }
     );
