@@ -3,7 +3,8 @@
 import { ProviderId } from '@videoviber/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { generateShotsForProject, useAppStore } from '@/app/store';
+import { type Shot, useAppStore } from '@/features/workspace';
+import { uploadAssetFile } from '@/lib/asset-upload';
 import {
   defaultProviderRuntimeHealth,
   providerCatalog,
@@ -30,19 +31,12 @@ async function readResponsePayload(response: Response) {
   }
 }
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        resolve(event.target.result);
-      } else {
-        reject(new Error('Failed to read file'));
-      }
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
+function createId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
 export default function CreateProjectPage() {
@@ -109,16 +103,28 @@ export default function CreateProjectPage() {
     [providerHealth]
   );
 
+  const implementedProviders = useMemo(
+    () => providerCatalog.filter((provider) => healthByProvider[provider.id]?.serverImplemented),
+    [healthByProvider]
+  );
+
+  const activeProviderHealth = healthByProvider[provider];
+  const providerConfigured = activeProviderHealth?.configured ?? false;
+
   useEffect(() => {
-    const active = healthByProvider[provider];
-    if (!active?.serverImplemented) {
-      setProvider(ProviderId.GEMINI);
+    const firstProvider = implementedProviders[0];
+    if (!firstProvider) {
+      return;
     }
-  }, [healthByProvider, provider]);
+
+    if (!implementedProviders.some((entry) => entry.id === provider)) {
+      setProvider(firstProvider.id);
+    }
+  }, [implementedProviders, provider]);
 
   const canSubmit = useMemo(
-    () => !submitting && title.trim().length > 0 && brief.trim().length > 0,
-    [submitting, title, brief]
+    () => !submitting && title.trim().length > 0 && brief.trim().length > 0 && providerConfigured,
+    [submitting, title, brief, providerConfigured]
   );
 
   const addFiles = useCallback((incoming: File[]) => {
@@ -169,93 +175,90 @@ export default function CreateProjectPage() {
     toast.loading('Planning shots...', { id: 'create' });
 
     try {
-      const baseShots = generateShotsForProject(brief, provider, shotCount).map((shot) => ({
-        ...shot,
-        duration: durationSeconds,
-      }));
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: brief,
+          provider,
+          workflow: 'plan',
+          duration: durationSeconds,
+          aspectRatio,
+          shotCount,
+        }),
+      });
 
-      let finalShots = baseShots;
-      let planningSource = 'local scaffold';
-
-      try {
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: brief,
-            provider,
-            duration: durationSeconds,
-            aspectRatio,
-            shotCount,
-          }),
-        });
-
-        const payload = await readResponsePayload(response);
-
-        if (!response.ok) {
-          throw new Error(
-            payload?.error ||
-              payload?.details ||
-              (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
-              `Planner request failed (${response.status})`
-          );
-        }
-
-        const planned = parsePlannerShots(payload?.result?.content ?? '', shotCount);
-
-        if (planned.length > 0) {
-          finalShots = baseShots.map((shot, index) => {
-            const candidate = planned[index];
-            if (!candidate) return shot;
-            return {
-              ...shot,
-              title: candidate.title || shot.title,
-              prompt: candidate.prompt || shot.prompt,
-            };
-          });
-          planningSource = `${provider} planner`;
-        }
-      } catch (plannerError) {
-        const plannerMessage =
-          plannerError instanceof Error ? plannerError.message : 'Planner unavailable';
-        toast.warning(`Using local scaffold: ${plannerMessage}`);
+      const payload = await readResponsePayload(response);
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            payload?.details ||
+            payload?.hint ||
+            (typeof payload?.raw === 'string' ? payload.raw.slice(0, 220) : undefined) ||
+            `Planner request failed (${response.status})`
+        );
       }
+
+      const planned = parsePlannerShots(payload?.result?.content ?? '', shotCount);
+      if (planned.length === 0) {
+        throw new Error('Planner returned no usable shots. Refine the brief and try again.');
+      }
+      if (planned.length < shotCount) {
+        throw new Error(
+          `Planner returned ${planned.length} shot(s), expected ${shotCount}. Retry with a more specific brief.`
+        );
+      }
+
+      const finalShots: Shot[] = planned.slice(0, shotCount).map((candidate, index) => ({
+        id: createId(),
+        projectId: '',
+        title: candidate.title || `Shot ${index + 1}`,
+        prompt:
+          candidate.prompt ||
+          `${brief.trim()} Focus this shot on sequence beat ${index + 1} of ${shotCount}.`,
+        status: 'draft',
+        provider,
+        thumbnailUrl: null,
+        videoUrl: null,
+        duration: durationSeconds,
+        order: index,
+        createdAt: new Date().toISOString(),
+      }));
 
       const projectId = addProject({
         title: title.trim(),
         brief: brief.trim(),
         provider,
-        shots: finalShots.map((s) => ({ ...s, projectId: '' })),
+        shots: finalShots,
       });
-
-      const store = useAppStore.getState();
-      const project = store.getProject(projectId);
-      if (project) {
-        store.updateProject(projectId, {
-          shots: project.shots.map((s) => ({ ...s, projectId })),
-          status: 'generating',
-        });
-      }
 
       if (files.length > 0) {
         try {
           await Promise.all(
             files.map(async (file) => {
-              const url = await fileToDataUrl(file);
+              const uploaded = await uploadAssetFile(file, { projectId });
               addAsset({
                 name: file.name,
                 type: 'reference',
-                url,
+                url: uploaded.url,
+                storagePath: uploaded.storagePath,
                 size: file.size,
+                mimeType: file.type || 'image/jpeg',
+                storageMode: 'remote-url',
+                projectId,
               });
             })
           );
-        } catch {
-          toast.warning('Project created, but some reference files failed to attach.');
+        } catch (uploadError) {
+          const message =
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'Some reference files failed to upload.';
+          toast.warning(`Project created, but references failed: ${message}`);
         }
       }
 
-      toast.success(`Created "${title}" with ${finalShots.length} shots via ${planningSource}`, {
+      toast.success(`Created "${title}" with ${finalShots.length} planned shots`, {
         id: 'create',
       });
       router.push(`/projects/${projectId}`);
@@ -269,10 +272,10 @@ export default function CreateProjectPage() {
   return (
     <div className="animate-fade-in-up mx-auto max-w-3xl space-y-8">
       <div>
-        <div className="vv-badge bg-accent/10 text-accent mb-3">New Project</div>
-        <h1 className="text-2xl font-bold tracking-tight">Describe Your Vision</h1>
+        <div className="vv-badge bg-accent/10 text-accent mb-3">New Scene</div>
+        <h1 className="text-3xl font-bold tracking-tight">Initialize Scene</h1>
         <p className="text-vv-secondary mt-2 text-sm leading-relaxed">
-          Convert a creative brief into production-ready shots, then move directly into generation.
+          Define simulation parameters and provide reference data for the render engine.
         </p>
       </div>
 
@@ -280,7 +283,7 @@ export default function CreateProjectPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <label htmlFor="title" className="vv-label">
-              Project Title
+              Scene Identifier
             </label>
             <input
               id="title"
@@ -358,7 +361,7 @@ export default function CreateProjectPage() {
                 d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
               />
             </svg>
-            Creative Brief
+            Director&apos;s Prompt
           </label>
           <textarea
             id="brief"
@@ -374,7 +377,7 @@ export default function CreateProjectPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="vv-label">Reference Images (optional)</label>
+          <label className="vv-label">Reference Assets (Optional)</label>
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -443,24 +446,22 @@ export default function CreateProjectPage() {
         </div>
 
         <div className="space-y-3">
-          <label className="vv-label">Planning Provider</label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {providerCatalog.map((p) => {
+          <label className="vv-label">Generation Engine</label>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {implementedProviders.map((p) => {
               const runtime = healthByProvider[p.id];
-              const isImplemented = runtime?.serverImplemented ?? false;
               const isConfigured = runtime?.configured ?? false;
               const isActive = provider === p.id;
               return (
                 <button
                   key={p.id}
                   type="button"
-                  disabled={!isImplemented}
                   onClick={() => setProvider(p.id)}
-                  className={`vv-card group cursor-pointer text-center transition-all duration-200 ${
+                  className={`group relative overflow-hidden rounded-2xl border p-4 text-center transition-all duration-300 ${
                     isActive
-                      ? 'border-accent/50 bg-accent/5 ring-accent/20 ring-1'
-                      : 'hover:border-accent/20'
-                  } ${!isImplemented ? 'cursor-not-allowed opacity-50' : ''}`}
+                      ? 'border-accent bg-accent/5 shadow-lg shadow-accent/20 ring-1 ring-accent/50'
+                      : 'border-white/10 bg-black/20 hover:border-white/30 hover:bg-white/5'
+                  }`}
                 >
                   <div
                     className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${p.gradient} text-accent ring-accent/10 text-sm font-bold ring-1`}
@@ -469,16 +470,17 @@ export default function CreateProjectPage() {
                   </div>
                   <p className="text-sm font-semibold">{p.shortName}</p>
                   <p className="text-vv-muted mt-0.5 text-xs">
-                    {!isImplemented
-                      ? 'Adapter pending'
-                      : isConfigured
-                        ? 'Configured'
-                        : 'Missing server key'}
+                    {isConfigured ? 'Configured' : 'Missing server key'}
                   </p>
                 </button>
               );
             })}
           </div>
+          {implementedProviders.length === 0 && (
+            <p className="text-vv-muted text-xs">
+              No planning providers are implemented on this server yet.
+            </p>
+          )}
         </div>
 
         <div className="bg-vv-surface/50 flex flex-col gap-4 rounded-xl border border-white/5 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -488,8 +490,8 @@ export default function CreateProjectPage() {
             </p>
             {(healthByProvider[provider]?.configured ?? false) === false && (
               <p className="text-vv-muted mt-1 text-xs">
-                Provider key is missing on the server. The project will still be created using local
-                shot scaffolding.
+                Provider key is missing on the server. Configure it in Settings → API Keys before
+                creating projects.
               </p>
             )}
           </div>
@@ -515,11 +517,11 @@ export default function CreateProjectPage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
                 </svg>
-                Planning...
+                Initializing...
               </>
             ) : (
               <>
-                Generate Shot Plan
+                Initialize Plan
                 <svg
                   className="h-4 w-4"
                   fill="none"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppStore } from '@/app/store';
+import { useAppStore } from '@/features/workspace';
 
 export default function GenerationsPage() {
   const generations = useAppStore((s) => s.generations);

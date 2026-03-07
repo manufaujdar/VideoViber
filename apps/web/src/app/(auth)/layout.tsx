@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
 import { BrandLogo } from '@/components/brand-logo';
 import { MotionImage } from '@/components/motion-image';
+import { authSetupChecklist } from '@/features/auth';
 
 export const metadata: Metadata = {
   title: 'Account',
   description: 'Authenticate into VideoViber and continue into the cinematic workspace.',
 };
-
-const checklist = [
-  'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
-  'Use /settings/keys to confirm provider runtime diagnostics.',
-  'Create a project and generate shots to validate full flow.',
-];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -22,8 +17,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <section className="vv-card-glow animate-slide-up hidden overflow-hidden rounded-3xl p-0 lg:block">
           <div className="relative aspect-[9/10]">
             <MotionImage
-              src="https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1400&q=80"
-              alt="Cinematic abstract corridor"
+              src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=1400&q=80"
+              alt="Cinematic AI-generated abstract visualization"
               fill
               sizes="40vw"
               className="object-cover"
@@ -33,21 +28,20 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,6,14,0.25),rgba(3,6,14,0.85))]" />
             <div className="absolute inset-x-6 bottom-6">
-              <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Developer Onboarding</p>
-              <h1 className="mt-2 text-2xl font-semibold">Authenticate, configure, and ship.</h1>
+              <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Studio Access</p>
+              <h1 className="mt-2 text-2xl font-semibold">Authenticate, configure, and create.</h1>
               <p className="text-vv-secondary mt-3 text-sm leading-relaxed">
-                Account routes are now wired for real Supabase auth flows. If environment variables
-                are missing, the UI shows exact setup requirements instead of simulated success.
+                Account routes are wired directly into the production environment. Complete the checklist to initialize your workspace instance.
               </p>
             </div>
           </div>
 
           <div className="border-t border-white/10 p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.1em] text-vv-secondary">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.1em] text-vv-secondary">
               Fast Setup Checklist
             </h2>
             <ul className="mt-3 space-y-2 text-sm">
-              {checklist.map((item) => (
+              {authSetupChecklist.map((item) => (
                 <li key={item} className="text-vv-secondary flex items-start gap-2">
                   <span className="mt-1 h-2 w-2 rounded-full bg-cyan-300" />
                   {item}

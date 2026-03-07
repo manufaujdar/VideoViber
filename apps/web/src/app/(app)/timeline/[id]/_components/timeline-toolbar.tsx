@@ -136,14 +136,14 @@ export function TimelineToolbar({
 }: TimelineToolbarProps) {
   const btnBase =
     'inline-flex items-center justify-center h-7 rounded transition-colors text-[11px] font-medium';
-  const btnIcon = `${btnBase} w-7 text-[#b0b0b0] hover:text-white hover:bg-white/[0.08]`;
-  const btnIconActive = `${btnBase} w-7 text-[#0a84ff] bg-[#0a84ff]/10 hover:bg-[#0a84ff]/20`;
-  const btnText = `${btnBase} gap-1 px-2 text-[#b0b0b0] hover:text-white hover:bg-white/[0.08]`;
-  const sep = 'w-px h-5 bg-[#333] mx-0.5 shrink-0';
+  const btnIcon = `${btnBase} w-7 text-vv-secondary hover:text-white hover:bg-white/[0.08]`;
+  const btnIconActive = `${btnBase} w-7 text-cyan-300 bg-cyan-400/15 hover:bg-cyan-400/25 ring-1 ring-cyan-400/30`;
+  const btnText = `${btnBase} gap-1 px-2 text-vv-secondary hover:text-white hover:bg-white/[0.08]`;
+  const sep = 'w-px h-5 bg-white/10 mx-0.5 shrink-0';
 
   return (
     <div
-      className="flex items-center gap-0.5 border-y border-[#2a2a2a] bg-[#1a1a1a] px-2 py-1"
+      className="flex items-center gap-0.5 border-y border-white/5 bg-transparent px-2 py-1.5"
       role="toolbar"
       aria-label="Timeline editing toolbar"
     >
@@ -266,15 +266,15 @@ export function TimelineToolbar({
       </button>
       <button
         onClick={onTogglePlayback}
-        className={`${btnBase} h-8 w-8 rounded-full text-white ${
+        className={`${btnBase} h-8 w-8 rounded-full text-white shadow-lg ${
           isPlaying
-            ? 'bg-[#ff3b30]/20 hover:bg-[#ff3b30]/30'
-            : 'bg-[#0a84ff]/15 hover:bg-[#0a84ff]/25'
+            ? 'bg-rose-500/20 hover:bg-rose-500/30 ring-1 ring-rose-500/40 text-rose-300'
+            : 'bg-cyan-500/15 hover:bg-cyan-500/25 ring-1 ring-cyan-500/30 text-cyan-300'
         }`}
         title="Play / Pause (Space)"
         aria-label="Play or pause timeline"
       >
-        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5 shadow-cyan-500/50" />}
       </button>
       <button onClick={onJumpEnd} className={btnIcon} title="Jump to end">
         <ArrowRight className="h-3.5 w-3.5" />
@@ -288,12 +288,12 @@ export function TimelineToolbar({
       </button>
 
       {/* Timecode */}
-      <div className="mx-2 flex items-center gap-1 rounded bg-black/40 px-2 py-0.5">
-        <span className="font-mono text-[12px] font-semibold tracking-wide text-[#e5e5e5]">
+      <div className="mx-2 flex items-center gap-1 rounded bg-black/60 ring-1 ring-white/10 px-2.5 py-1">
+        <span className="font-mono text-[12px] font-semibold tracking-widest text-white">
           {formatTimecode(currentTime)}
         </span>
-        <span className="text-[10px] text-[#666]">/</span>
-        <span className="font-mono text-[10px] text-[#8e8e93]">
+        <span className="text-[10px] text-vv-muted">/</span>
+        <span className="font-mono text-[10px] text-vv-secondary tracking-widest">
           {formatTimecode(totalDuration)}
         </span>
       </div>
@@ -322,10 +322,10 @@ export function TimelineToolbar({
         step="0.1"
         value={zoom}
         onChange={(e) => onZoomChange(Number(e.target.value))}
-        className="mx-1 h-1 w-20 cursor-pointer appearance-none rounded-full bg-[#444] accent-[#0a84ff] [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#0a84ff]"
+        className="mx-1 h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/10 accent-cyan-400 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(34,211,238,0.5)]"
         aria-label="Timeline zoom"
       />
-      <span className="min-w-[32px] text-center font-mono text-[10px] text-[#8e8e93]">
+      <span className="min-w-[32px] text-center font-mono text-[10px] text-vv-secondary">
         {zoom.toFixed(1)}x
       </span>
 
@@ -352,7 +352,7 @@ export function TimelineToolbar({
       </button>
       <button
         onClick={onExport}
-        className={`${btnBase} gap-1 px-2.5 bg-[#0a84ff]/15 text-[#0a84ff] hover:bg-[#0a84ff]/25 font-semibold`}
+        className={`${btnBase} gap-1 px-3 bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/30 hover:bg-cyan-500/25 hover:text-white font-semibold transition-all duration-200`}
         title="Export Edit Decision List"
       >
         <Download className="h-3.5 w-3.5" />

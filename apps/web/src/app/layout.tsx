@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Outfit } from 'next/font/google';
 import Script from 'next/script';
+import { ServiceWorkerRegister } from '@/components/service-worker-register';
 import './globals.css';
 
 const outfit = Outfit({
@@ -12,7 +13,7 @@ const outfit = Outfit({
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    themeColor: '#52deff',
+    themeColor: '#02040a',
 };
 
 export const metadata: Metadata = {
@@ -80,6 +81,7 @@ export default function RootLayout({
                       })();
                     `}
                 </Script>
+                <ServiceWorkerRegister />
                 {children}
             </body>
         </html>

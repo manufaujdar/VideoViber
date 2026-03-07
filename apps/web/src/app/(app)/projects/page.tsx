@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { type Project, useAppStore } from '@/app/store';
+import { type Project, useAppStore } from '@/features/workspace';
 import { MotionImage } from '@/components/motion-image';
 
 type ProjectView = 'active' | 'starred' | 'archived' | 'all';
@@ -137,9 +137,9 @@ export default function ProjectsPage() {
     <div className="animate-fade-in-up space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Projects Workspace</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Studio Vault</h1>
           <p className="text-vv-secondary mt-1 text-sm">
-            Organize and maintain project inventory with clear lifecycle controls.
+            Manage studio assets and render pipeline inventory.
           </p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
@@ -151,7 +151,7 @@ export default function ProjectsPage() {
             className="vv-input h-10 w-full sm:w-72"
           />
           <Link href="/projects/new" className="vv-btn-primary whitespace-nowrap">
-            New Project
+            Initialize Scene
           </Link>
         </div>
       </div>
@@ -175,15 +175,15 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-fit items-center gap-1 rounded-xl bg-black/40 p-1 ring-1 ring-white/10">
         {viewOptions.map((option) => (
           <button
             key={option.id}
             onClick={() => setView(option.id)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
               view === option.id
-                ? 'border-accent bg-accent/15 text-accent'
-                : 'border-white/10 bg-white/5 text-vv-secondary hover:text-vv-primary'
+                ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/20'
+                : 'text-vv-secondary hover:bg-white/5 hover:text-white'
             }`}
           >
             {option.label}
@@ -193,17 +193,17 @@ export default function ProjectsPage() {
 
       {filteredProjects.length === 0 ? (
         <div className="vv-card py-16 text-center">
-          <h2 className="text-lg font-semibold">
-            {projects.length === 0 ? 'No projects yet' : 'No projects match this view'}
+          <h2 className="text-xl font-bold tracking-tight">
+            {projects.length === 0 ? 'Vault is empty' : 'No scenes match this view'}
           </h2>
           <p className="text-vv-secondary mt-2 text-sm">
             {projects.length === 0
-              ? 'Create your first project to start generating shots.'
+              ? 'Initialize your first scene to start generating shots.'
               : 'Adjust search or change the selected filter.'}
           </p>
           {projects.length === 0 && (
             <Link href="/projects/new" className="vv-btn-primary mt-6 inline-flex">
-              Create Project
+              Initialize Scene
             </Link>
           )}
         </div>
@@ -216,8 +216,8 @@ export default function ProjectsPage() {
             const previewShot = project.shots[0];
 
             return (
-              <article key={project.id} className="vv-card-hover space-y-4">
-                <div className="bg-vv-base relative aspect-video overflow-hidden rounded-xl">
+              <article key={project.id} className="vv-card-hover space-y-4 rounded-2xl p-4">
+                <div className="bg-vv-base relative aspect-video overflow-hidden rounded-xl ring-1 ring-white/10 shadow-lg">
                   <Link href={`/projects/${project.id}`} className="absolute inset-0 z-10" />
                   {previewShot?.thumbnailUrl ? (
                     <MotionImage

@@ -3,7 +3,8 @@
 import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { parsePlannerShots } from '@/lib/shot-planner';
-import { useAppStore } from '@/app/store';
+import { useAppStore } from '@/features/workspace';
+import { uploadAssetFile } from '@/lib/asset-upload';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 
@@ -258,23 +259,30 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
       let nextOrder = project.shots.reduce((max, shot) => Math.max(max, shot.order), -1) + 1;
 
       for (const file of videos) {
-        let objectUrl: string | null = null;
         try {
-          objectUrl = URL.createObjectURL(file);
-          const metadata = await readVideoMetadata(objectUrl);
+          const metadataUrl = URL.createObjectURL(file);
+          let metadata;
+          try {
+            metadata = await readVideoMetadata(metadataUrl);
+          } finally {
+            URL.revokeObjectURL(metadataUrl);
+          }
+
+          const uploaded = await uploadAssetFile(file, { projectId: project.id });
 
           const assetId = addAsset({
             name: file.name,
             type: 'video',
-            url: objectUrl,
+            url: uploaded.url,
+            storagePath: uploaded.storagePath,
             size: file.size,
             width: metadata.width,
             height: metadata.height,
             duration: metadata.duration,
             mimeType: file.type || 'video/mp4',
-            storageMode: 'object-url',
+            storageMode: 'remote-url',
             projectId: project.id,
-            volatile: true,
+            volatile: false,
           });
 
           addShot(project.id, {
@@ -284,7 +292,7 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
             status: 'completed',
             provider: 'imported',
             thumbnailUrl: null,
-            videoUrl: objectUrl,
+            videoUrl: uploaded.url,
             duration: metadata.duration,
             order: nextOrder,
             sourceType: 'import',
@@ -297,9 +305,6 @@ export default function ProjectWorkspacePage({ params }: { params: { id: string 
           imported += 1;
           nextOrder += 1;
         } catch {
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-          }
           skipped += 1;
         }
       }

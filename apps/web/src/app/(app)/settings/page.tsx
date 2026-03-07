@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { ProviderId } from '@videoviber/types';
-import { useAppStore } from '@/app/store';
+import { useAppStore } from '@/features/workspace';
 import { providerCatalog } from '@/lib/providers';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -12,6 +13,7 @@ export default function SettingsPage() {
   const deleteAllProjects = useAppStore((s) => s.deleteAllProjects);
 
   const [displayName, setDisplayName] = useState(settings.displayName);
+  const [accountEmail, setAccountEmail] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const selectableProviders = providerCatalog.filter(
     (provider) => provider.id === ProviderId.GEMINI || provider.id === ProviderId.VEO
@@ -22,6 +24,44 @@ export default function SettingsPage() {
       updateSettings({ defaultProvider: ProviderId.GEMINI });
     }
   }, [selectableProviders, settings.defaultProvider, updateSettings]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadUserProfile = async () => {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) return;
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!mounted || error || !user) {
+        return;
+      }
+
+      setAccountEmail(user.email || '');
+      setDisplayName((current) => {
+        if (current.trim().length > 0) {
+          return current;
+        }
+
+        const metadataName =
+          typeof user.user_metadata?.full_name === 'string'
+            ? user.user_metadata.full_name.trim()
+            : '';
+
+        return metadataName.length > 0 ? metadataName : current;
+      });
+    };
+
+    void loadUserProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSave = () => {
     updateSettings({ displayName: displayName.trim() });
@@ -53,7 +93,13 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             <label className="vv-label">Email</label>
-            <input type="email" placeholder="you@example.com" className="vv-input w-full opacity-60" disabled />
+            <input
+              type="email"
+              value={accountEmail || 'Not connected'}
+              className="vv-input w-full opacity-60"
+              readOnly
+              disabled
+            />
             <p className="text-xs text-vv-muted">Managed by your auth provider</p>
           </div>
           <button onClick={handleSave} className="vv-btn-primary">Save Changes</button>

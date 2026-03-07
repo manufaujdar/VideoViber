@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAppStore } from '@/app/store';
+import { useAppStore, useWorkspaceBootstrap, workspaceSelectors } from '@/features/workspace';
 import { BrandLogo } from '@/components/brand-logo';
+import { isSupabaseConfigured } from '@/lib/supabase-browser';
 import { Toaster } from 'sonner';
 
 const navItems = [
@@ -104,6 +105,24 @@ const accountNavItems = [
           d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
         />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/settings/billing',
+    label: 'Billing',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V4.245c0-.754-.726-1.294-1.453-1.096a60.07 60.07 0 01-15.797 2.101c-.699.156-1.203.766-1.203 1.479v10.54c0 .713.504 1.323 1.203 1.479z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/settings/team',
+    label: 'Team',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
       </svg>
     ),
   },
@@ -298,7 +317,12 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
         >
           New Project
         </Link>
-        <button className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03]">
+        <Link
+          href="/generations"
+          className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03]"
+          aria-label="Open generations"
+          title="Open generations"
+        >
           <svg
             className="h-4 w-4"
             fill="none"
@@ -312,7 +336,7 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
               d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
             />
           </svg>
-        </button>
+        </Link>
       </div>
     </header>
   );
@@ -320,14 +344,67 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const initialized = useAppStore(workspaceSelectors.initialized);
+  const initializing = useAppStore(workspaceSelectors.initializing);
+  const backendReady = useAppStore(workspaceSelectors.backendReady);
+  const lastSyncError = useAppStore(workspaceSelectors.lastSyncError);
+  const refreshWorkspace = useAppStore((state) => state.refreshWorkspace);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  useWorkspaceBootstrap();
+
+  const loadingShell = !initialized || initializing;
+  const showBackendGate = initialized && !initializing && !backendReady;
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar mobileOpen={sidebarOpen} onClose={closeSidebar} />
-      <div className="md:ml-sidebar flex flex-1 flex-col">
-        <TopBar onOpenSidebar={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+      {!showBackendGate && <Sidebar mobileOpen={sidebarOpen} onClose={closeSidebar} />}
+      <div className={`${showBackendGate ? '' : 'md:ml-sidebar'} flex flex-1 flex-col`}>
+        {!showBackendGate && <TopBar onOpenSidebar={() => setSidebarOpen(true)} />}
+        <main className="flex-1 p-4 sm:p-6">
+          {loadingShell ? (
+            <div className="flex h-full min-h-[60vh] items-center justify-center">
+              <div className="vv-card w-full max-w-md p-6 text-center">
+                <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-accent" />
+                <h2 className="text-lg font-semibold">Loading workspace</h2>
+                <p className="text-vv-secondary mt-1 text-sm">
+                  Syncing projects, shots, assets, and generations from backend.
+                </p>
+              </div>
+            </div>
+          ) : showBackendGate ? (
+            <div className="mx-auto flex min-h-[70vh] w-full max-w-2xl items-center justify-center">
+              <div className="vv-card w-full space-y-4 p-6 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-300">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold">Backend connection required</h2>
+                <p className="text-vv-secondary text-sm leading-relaxed">
+                  {isSupabaseConfigured
+                    ? 'Sign in to load your workspace from Supabase.'
+                    : 'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable backend data.'}
+                </p>
+                {lastSyncError && (
+                  <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                    {lastSyncError}
+                  </p>
+                )}
+                <div className="flex items-center justify-center gap-2">
+                  <button onClick={() => void refreshWorkspace()} className="vv-btn-secondary px-4 py-2 text-sm">
+                    Retry Sync
+                  </button>
+                  <Link href="/login" className="vv-btn-primary px-4 py-2 text-sm">
+                    Open Login
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
       <Toaster
         position="bottom-right"

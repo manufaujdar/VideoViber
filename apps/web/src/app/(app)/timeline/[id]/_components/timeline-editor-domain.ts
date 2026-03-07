@@ -1,4 +1,4 @@
-import type { Shot } from '@/app/store';
+import type { Shot } from '@/features/workspace';
 
 export type TransitionType = 'cut' | 'dissolve' | 'fade' | 'wipe';
 export type ClipColor = 'cyan' | 'amber' | 'rose' | 'emerald' | 'slate';

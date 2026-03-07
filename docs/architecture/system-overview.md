@@ -1,5 +1,8 @@
 # System Overview
 
+Related frontend structure document:
+- `docs/architecture/frontend-architecture-v2.md`
+
 ## High-Level Architecture
 
 VideoViber follows a **three-tier architecture** with clear separation between frontend, backend (Supabase), and async workers.

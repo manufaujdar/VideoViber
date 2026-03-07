@@ -1,40 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BrandLogo } from '@/components/brand-logo';
+import {
+  marketingFooterLinks,
+  marketingFooterPills,
+  marketingNavLinks,
+} from '@/features/marketing';
 
 export const metadata: Metadata = {
   title: {
     template: '%s | VideoViber',
     default: 'VideoViber',
   },
-};
-
-const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/features', label: 'Features' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/about', label: 'About' },
-  { href: '/contact', label: 'Contact' },
-];
-
-const footerLinks = {
-  Product: [
-    { href: '/features', label: 'Features' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/projects/new', label: 'New Project' },
-  ],
-  Company: [
-    { href: '/about', label: 'About' },
-    { href: '/blog', label: 'Blog' },
-    { href: '/careers', label: 'Careers' },
-    { href: '/contact', label: 'Contact' },
-  ],
-  Legal: [
-    { href: '/privacy', label: 'Privacy' },
-    { href: '/terms', label: 'Terms' },
-    { href: '/security', label: 'Security' },
-  ],
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
@@ -47,7 +24,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <BrandLogo href="/" />
 
           <ul className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
+            {marketingNavLinks.map((link) => (
               <li key={link.href}>
                 <Link
                   href={link.href}
@@ -90,11 +67,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </p>
 
               <div className="mt-6 flex gap-3">
-                {[
-                  { href: '/blog', label: 'Journal' },
-                  { href: '/security', label: 'Security' },
-                  { href: '/contact', label: 'Contact' },
-                ].map((link) => (
+                {marketingFooterPills.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -106,7 +79,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            {Object.entries(footerLinks).map(([heading, links]) => (
+            {Object.entries(marketingFooterLinks).map(([heading, links]) => (
               <div key={heading}>
                 <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-vv-muted">
                   {heading}

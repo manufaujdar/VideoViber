@@ -3,11 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
+import {
+  authConfigMessages,
+  getExistingSession,
+  signInWithOAuth,
+  signInWithPassword,
+} from '@/features/auth';
+import { isSupabaseConfigured } from '@/lib/supabase-browser';
 
-const configMessage =
-  'Supabase auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sign in.';
+const configMessage = authConfigMessages.login;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,36 +22,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
+    void (async () => {
+      const session = await getExistingSession();
+      if (session.ok && session.data.hasSession) {
         router.replace('/dashboard');
       }
-    });
+    })();
   }, [router]);
 
-  const signInWithOAuth = async (provider: 'google' | 'github') => {
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setError(null);
-    const supabase = getSupabaseBrowserClient();
-
-    if (!supabase) {
-      setError(configMessage);
-      return;
-    }
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: buildAuthRedirectUrl('/dashboard'),
-      },
-    });
-
-    if (oauthError) {
-      setError(oauthError.message);
+    const result = await signInWithOAuth(provider, configMessage);
+    if (!result.ok) {
+      setError(result.error);
     }
   };
 
@@ -55,23 +42,16 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
 
-    const supabase = getSupabaseBrowserClient();
-
-    if (!supabase) {
-      setError(configMessage);
-      return;
-    }
-
     setLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const result = await signInWithPassword({
       email,
       password,
-    });
+    }, configMessage);
 
     setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
@@ -80,10 +60,10 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="mb-6 text-center">
-        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Account Access</p>
-        <h1 className="mt-2 text-2xl font-semibold">Welcome back</h1>
-        <p className="text-vv-secondary mt-2 text-sm">Sign in to continue to your workspace.</p>
+      <div className="mb-8 text-center">
+        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Studio Access</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Access Studio</h1>
+        <p className="text-vv-secondary mt-2 text-sm">Authenticate to resume production.</p>
       </div>
 
       {!isSupabaseConfigured && (
@@ -102,7 +82,7 @@ export default function LoginPage() {
         <button
           type="button"
           disabled={!isSupabaseConfigured || loading}
-          onClick={() => void signInWithOAuth('google')}
+          onClick={() => void handleOAuthSignIn('google')}
           className="vv-btn-secondary w-full justify-center rounded-xl py-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue with Google
@@ -110,7 +90,7 @@ export default function LoginPage() {
         <button
           type="button"
           disabled={!isSupabaseConfigured || loading}
-          onClick={() => void signInWithOAuth('github')}
+          onClick={() => void handleOAuthSignIn('github')}
           className="vv-btn-secondary w-full justify-center rounded-xl py-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue with GitHub
@@ -177,12 +157,6 @@ export default function LoginPage() {
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
-
-      {!isSupabaseConfigured && (
-        <Link href="/dashboard" className="vv-btn-ghost mt-4 w-full justify-center rounded-xl border border-white/10 py-3 text-sm">
-          Continue in Local Workspace Mode
-        </Link>
-      )}
 
       <p className="text-vv-secondary mt-6 text-center text-sm">
         Don&apos;t have an account?{' '}

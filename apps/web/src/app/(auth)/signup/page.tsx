@@ -3,11 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
+import {
+  authConfigMessages,
+  signInWithOAuth as signInWithOAuthAction,
+  signUpWithPassword,
+} from '@/features/auth';
+import { isSupabaseConfigured } from '@/lib/supabase-browser';
 
-const configMessage =
-  'Supabase auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable account creation.';
+const configMessage = authConfigMessages.signup;
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -27,25 +30,13 @@ export default function SignUpPage() {
     [name, email, password, passwordsMatch, agreed]
   );
 
-  const signInWithOAuth = async (provider: 'google' | 'github') => {
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setError(null);
     setNotice(null);
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setError(configMessage);
-      return;
-    }
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: buildAuthRedirectUrl('/dashboard'),
-      },
-    });
-
-    if (oauthError) {
-      setError(oauthError.message);
+    const result = await signInWithOAuthAction(provider, configMessage);
+    if (!result.ok) {
+      setError(result.error);
     }
   };
 
@@ -58,33 +49,21 @@ export default function SignUpPage() {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setError(configMessage);
-      return;
-    }
-
     setLoading(true);
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const result = await signUpWithPassword({
+      name,
       email,
       password,
-      options: {
-        data: {
-          full_name: name.trim(),
-        },
-        emailRedirectTo: buildAuthRedirectUrl('/login'),
-      },
-    });
+    }, configMessage);
 
     setLoading(false);
 
-    if (signUpError) {
-      setError(signUpError.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
-    if (data.session) {
+    if (result.data.hasSession) {
       router.push('/dashboard');
       return;
     }
@@ -94,11 +73,11 @@ export default function SignUpPage() {
 
   return (
     <>
-      <div className="mb-6 text-center">
-        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Create Account</p>
-        <h1 className="mt-2 text-2xl font-semibold">Start your studio</h1>
+      <div className="mb-8 text-center">
+        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Initialize Workspace</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Initialize Studio</h1>
         <p className="text-vv-secondary mt-2 text-sm">
-          Set up your account and continue into the production workspace.
+          Configure your credentials to enter the production environment.
         </p>
       </div>
 
@@ -124,7 +103,7 @@ export default function SignUpPage() {
         <button
           type="button"
           disabled={!isSupabaseConfigured || loading}
-          onClick={() => void signInWithOAuth('google')}
+          onClick={() => void handleOAuthSignIn('google')}
           className="vv-btn-secondary w-full justify-center rounded-xl py-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue with Google
@@ -132,7 +111,7 @@ export default function SignUpPage() {
         <button
           type="button"
           disabled={!isSupabaseConfigured || loading}
-          onClick={() => void signInWithOAuth('github')}
+          onClick={() => void handleOAuthSignIn('github')}
           className="vv-btn-secondary w-full justify-center rounded-xl py-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue with GitHub
@@ -248,12 +227,6 @@ export default function SignUpPage() {
           {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
-
-      {!isSupabaseConfigured && (
-        <Link href="/dashboard" className="vv-btn-ghost mt-4 w-full justify-center rounded-xl border border-white/10 py-3 text-sm">
-          Continue in Local Workspace Mode
-        </Link>
-      )}
 
       <p className="text-vv-secondary mt-6 text-center text-sm">
         Already have an account?{' '}

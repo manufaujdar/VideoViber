@@ -10,8 +10,9 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
-import { ChevronLeft, Clapperboard } from 'lucide-react';
-import { useAppStore, type Shot } from '@/app/store';
+import { ChevronLeft } from 'lucide-react';
+import { useAppStore, type Shot } from '@/features/workspace';
+import { uploadAssetFile } from '@/lib/asset-upload';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
 import { TimelineInspectorPanel } from './_components/timeline-inspector-panel';
@@ -421,7 +422,6 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   const previewClip = previewSegment?.clip ?? null;
   const canUsePreviewVideo = Boolean(previewClip?.videoUrl && previewClip?.enabled && trackStatus.videoVisible);
 
-  const disabledClipCount = useMemo(() => timelineClips.filter((c) => !c.enabled).length, [timelineClips]);
 
   const activeTitles = useMemo(() => {
     if (!trackStatus.titlesVisible) return [];
@@ -727,16 +727,35 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
     setImportingMedia(true);
     try {
       for (const file of Array.from(files)) {
-        const objectUrl = URL.createObjectURL(file);
-        const metadata = await readImportedVideoMetadata(objectUrl);
+        const metadataUrl = URL.createObjectURL(file);
+        let metadata: { duration: number; width?: number; height?: number };
+        try {
+          metadata = await readImportedVideoMetadata(metadataUrl);
+        } finally {
+          URL.revokeObjectURL(metadataUrl);
+        }
+        const uploaded = await uploadAssetFile(file, { projectId: project.id });
         const title = toImportedTitle(file.name);
         const newShotData = {
           projectId: project.id, title, prompt: `Imported from ${file.name}`, provider: 'import', status: 'completed' as const,
           duration: metadata.duration, order: timelineClips.length, sourceType: 'import' as const,
-          thumbnailUrl: null, videoUrl: objectUrl,
+          thumbnailUrl: null, videoUrl: uploaded.url,
         };
         const shotId = addShot(project.id, newShotData);
-        addAsset({ projectId: project.id, type: 'video' as const, url: objectUrl, name: file.name, size: file.size });
+        addAsset({
+          projectId: project.id,
+          type: 'video' as const,
+          url: uploaded.url,
+          storagePath: uploaded.storagePath,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'video/mp4',
+          storageMode: 'remote-url',
+          volatile: false,
+          duration: metadata.duration,
+          width: metadata.width,
+          height: metadata.height,
+        });
         const shotForClip: Shot = { ...newShotData, id: shotId, createdAt: new Date().toISOString() };
         const clip = shotToTimelineClip(shotForClip, timelineClips.length);
         commitTimeline((state) => ({ ...state, clips: [...state.clips, clip] }));
@@ -1075,33 +1094,33 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
   ];
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-[#111]">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3 border-b border-[#2a2a2a] bg-[#1a1a1a] px-3 py-1.5">
-        <a href={`/projects/${params.id}`} className="flex h-7 w-7 items-center justify-center rounded text-[#8e8e93] transition-colors hover:bg-white/[0.06] hover:text-white">
-          <ChevronLeft className="h-4 w-4" />
-        </a>
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#0a84ff]/10 text-[#0a84ff]">
-          <Clapperboard className="h-4 w-4" />
+    <div className="flex h-screen flex-col bg-[#02050a] text-sm text-vv-secondary overflow-hidden font-sans">
+      {/* ── Top Header ── */}
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/40 backdrop-blur-md px-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/projects"
+            className="flex h-7 w-7 items-center justify-center rounded-md bg-white/5 text-vv-secondary hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="font-semibold text-white truncate max-w-[200px] sm:max-w-xs tracking-tight">{project?.title || 'Loading...'}</h1>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[13px] font-semibold text-[#e5e5e5]">{project.title}</h1>
-          <p className="text-[10px] text-[#666]">
-            {timelineClips.length} clips · {timeline?.musicBeds.length ?? 0} music · {timeline?.titleOverlays.length ?? 0} titles · {formatTime(totalDuration)}
-            {disabledClipCount > 0 ? ` · ${disabledClipCount} disabled` : ''}
-            {playbackRange ? ` · ${formatTime(playbackRange.start)}-${formatTime(playbackRange.end)}` : ''}
-          </p>
+        <div className="text-xs font-medium text-vv-muted flex items-center gap-2">
+          {importingMedia ? (
+            <span className="animate-pulse bg-cyan-400/20 text-cyan-300 px-2 py-1 rounded">Importing...</span>
+          ) : (
+            <span>Studio Pipeline v3.0</span>
+          )}
         </div>
-        <div className="flex items-center gap-1 rounded bg-black/30 px-2 py-0.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${toolMode === 'blade' ? 'bg-[#ff9f0a]' : 'bg-[#30d158]'}`} />
-          <span className="text-[9px] font-semibold uppercase tracking-wider text-[#8e8e93]">{toolMode}</span>
-        </div>
-      </div>
+      </header>
 
       {/* ── Top Panel: Viewer + Inspector ── */}
       <div className="flex min-h-0 flex-1 border-b border-[#2a2a2a]">
-        {/* Video Viewer */}
-        <div className="relative flex min-h-[220px] flex-1 items-center justify-center overflow-hidden bg-[#0d0d0d]">
+          {/* Main Content View */}
+          <div className="flex flex-1 flex-col overflow-hidden bg-black/60 relative">
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.04),transparent_70%)]" />
+            <div className="relative flex min-h-[220px] flex-1 items-center justify-center overflow-hidden bg-[#0d0d0d]">
           {canUsePreviewVideo && previewClip?.videoUrl ? (
             <video
               ref={previewVideoRef}
@@ -1150,9 +1169,11 @@ export default function TimelineEditorPage({ params }: { params: { id: string } 
             </div>
           )}
         </div>
+          </div>
 
-        {/* Inspector Panel */}
-        <div className="w-[280px] shrink-0 border-l border-[#2a2a2a]">
+        {/* ── Transport / Toolbar ── */}
+        {/* ── Transport / Toolbar ── */}
+        <div className="w-[280px] shrink-0 border-l border-[#2a2a2a] bg-black/90 backdrop-blur-xl relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
           <TimelineInspectorPanel
             selectedClip={selectedClip}
             selectedSegment={selectedSegment}

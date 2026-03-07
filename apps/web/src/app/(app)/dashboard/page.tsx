@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useAppStore } from '@/app/store';
+import { useAppStore } from '@/features/workspace';
 import { MotionImage } from '@/components/motion-image';
 
 export default function DashboardPage() {
@@ -119,8 +119,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-vv-secondary mt-1 text-sm">Your video projects at a glance</p>
+          <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
+          <p className="text-vv-secondary mt-1 text-sm">Active render pipeline and scene inventory</p>
         </div>
         <Link href="/projects/new" className="vv-btn-primary">
           <svg
@@ -132,14 +132,14 @@ export default function DashboardPage() {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          New Project
+          Initialize Scene
         </Link>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="vv-card-hover group">
+          <div key={stat.label} className="vv-card-hover glass-strong border-white/5 group pt-5 pb-5 pl-6 pr-6">
             <div className="flex items-center justify-between">
               <p className="text-vv-muted text-xs font-semibold uppercase tracking-wider">
                 {stat.label}
@@ -159,8 +159,8 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           {
-            title: 'Create Project',
-            desc: 'Start from a vibe brief',
+            title: 'Initialize Scene',
+            desc: 'Configure shot parameters',
             href: '/projects/new',
             icon: (
               <svg
@@ -179,8 +179,8 @@ export default function DashboardPage() {
             ),
           },
           {
-            title: 'Manage Projects',
-            desc: 'Star, rename, archive',
+            title: 'Studio Vault',
+            desc: 'Manage project inventory',
             href: '/projects',
             icon: (
               <svg
@@ -338,13 +338,13 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : projects.length > 0 ? (
-        <div className="vv-card py-16 text-center">
-          <h3 className="text-xl font-bold">Active workspace is empty</h3>
+        <div className="vv-card glass-strong border-white/5 py-16 text-center">
+          <h3 className="text-xl font-bold tracking-tight">Pipeline is dormant</h3>
           <p className="text-vv-secondary mt-2 text-sm">
-            Your projects are currently archived. Restore them from Project Workspace.
+            Your projects are currently archived. Restore them from the Studio Vault.
           </p>
           <Link href="/projects" className="vv-btn-secondary mt-6 inline-flex px-6 py-2.5">
-            Open Project Workspace
+            Open Studio Vault
           </Link>
         </div>
       ) : (
@@ -371,10 +371,9 @@ export default function DashboardPage() {
                 />
               </svg>
             </div>
-            <h3 className="mb-2 text-xl font-bold">No projects yet</h3>
+            <h3 className="mb-2 text-xl font-bold tracking-tight">No scenes instantiated</h3>
             <p className="text-vv-secondary mb-8 max-w-md text-center text-sm leading-relaxed">
-              Create your first project to start turning vague creative ideas into editable first
-              cuts.
+              Initialize your first project to start turning creative intent into verifiable generative timelines.
             </p>
             <Link href="/projects/new" className="vv-btn-primary px-8 py-3">
               <svg
@@ -386,7 +385,7 @@ export default function DashboardPage() {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Create Your First Project
+              Initialize First Scene
             </Link>
           </div>
         </div>

@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { buildAuthRedirectUrl } from '@/lib/auth-redirect';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase-browser';
+import { authConfigMessages, requestPasswordReset } from '@/features/auth';
+import { isSupabaseConfigured } from '@/lib/supabase-browser';
 
-const configMessage =
-  'Supabase auth is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable password reset.';
+const configMessage = authConfigMessages.forgotPassword;
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -18,20 +17,12 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setError(null);
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setError(configMessage);
-      return;
-    }
-
     setLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: buildAuthRedirectUrl('/login'),
-    });
+    const result = await requestPasswordReset(email, configMessage);
     setLoading(false);
 
-    if (resetError) {
-      setError(resetError.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
@@ -40,13 +31,13 @@ export default function ForgotPasswordPage() {
 
   return (
     <>
-      <div className="mb-6 text-center">
-        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Password Recovery</p>
-        <h1 className="mt-2 text-2xl font-semibold">{sent ? 'Check your inbox' : 'Reset password'}</h1>
+      <div className="mb-8 text-center">
+        <p className="text-cyan-200 text-xs uppercase tracking-[0.12em]">Studio Recovery</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{sent ? 'Check your inbox' : 'Restore Access'}</h1>
         <p className="text-vv-secondary mt-2 text-sm">
           {sent
-            ? `A reset link was sent to ${email}.`
-            : 'Enter your account email to receive a secure password reset link.'}
+            ? `A restoration link was sent to ${email}.`
+            : 'Enter your associated email to receive a secure restoration link.'}
         </p>
       </div>
 

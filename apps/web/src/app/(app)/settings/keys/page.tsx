@@ -91,21 +91,20 @@ export default function ApiKeysPage() {
   return (
     <div className="animate-fade-in-up mx-auto max-w-3xl space-y-8">
       <div>
-        <div className="vv-badge bg-accent/10 text-accent mb-3">Integrations</div>
-        <h1 className="text-2xl font-bold tracking-tight">Provider Diagnostics</h1>
+        <div className="vv-badge bg-accent/10 text-accent mb-3 font-mono tracking-widest">System Health</div>
+        <h1 className="text-3xl font-bold tracking-tight">Engine Diagnostics</h1>
         <p className="text-vv-secondary mt-2 text-sm leading-relaxed">
-          This page reads server runtime status from <code>/api/generate</code> so developers can
-          verify exactly which providers are implemented and configured.
+          Real-time visualization of generative engine connections via <code className="text-vv-primary bg-white/5 px-1.5 py-0.5 rounded font-mono text-[11px]">/api/generate</code>, confirming implementation and environment variables.
         </p>
       </div>
 
-      <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <span className="vv-badge bg-blue-500/10 text-blue-300">
-            Implemented Providers: {implementedCount}
+      <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 shadow-[0_0_20px_rgba(59,130,246,0.15)] backdrop-blur-md">
+        <div className="flex flex-wrap items-center gap-4 text-sm font-mono tracking-tight">
+          <span className="vv-badge bg-blue-500/10 text-blue-300 ring-1 ring-blue-400/20">
+            Implemented Engines: {implementedCount}
           </span>
-          <span className="vv-badge bg-emerald-500/10 text-emerald-300">
-            Configured Providers: {configuredCount}
+          <span className="vv-badge bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/20">
+            Configured Engines: {configuredCount}
           </span>
         </div>
       </div>
@@ -117,7 +116,7 @@ export default function ApiKeysPage() {
           const isConfigured = runtime?.configured ?? false;
 
           return (
-            <article key={provider.id} className="vv-card-hover">
+            <article key={provider.id} className="vv-card-hover glass-strong border-white/5 p-6 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div
@@ -154,19 +153,19 @@ export default function ApiKeysPage() {
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <span
-                    className={`vv-badge ${
+                    className={`vv-badge font-mono text-[10px] uppercase tracking-wider ${
                       isImplemented
-                        ? 'bg-emerald-500/10 text-emerald-300'
-                        : 'bg-amber-500/10 text-amber-300'
+                        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30 shadow-[0_0_10px_rgba(52,211,153,0.2)]'
+                        : 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-400/30 shadow-[0_0_10px_rgba(251,191,36,0.2)]'
                     }`}
                   >
                     {isImplemented ? 'Adapter Ready' : 'Adapter Pending'}
                   </span>
                   <span
-                    className={`vv-badge ${
+                    className={`vv-badge font-mono text-[10px] uppercase tracking-wider ${
                       isConfigured
-                        ? 'bg-emerald-500/10 text-emerald-300'
-                        : 'bg-red-500/10 text-red-300'
+                        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30 shadow-[0_0_10px_rgba(52,211,153,0.2)]'
+                        : 'bg-red-500/15 text-red-300 ring-1 ring-red-400/30 shadow-[0_0_10px_rgba(248,113,113,0.2)]'
                     }`}
                   >
                     {isConfigured ? 'Env Configured' : 'Missing Env'}
@@ -174,13 +173,13 @@ export default function ApiKeysPage() {
                 </div>
               </div>
 
-              <div className="mt-4 border-t border-white/5 pt-4">
-                <p className="text-vv-muted mb-2 text-xs uppercase tracking-wider">
-                  Required Environment Variables
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="text-vv-muted mb-2 text-xs uppercase tracking-wider font-semibold">
+                  Required System Variables
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {provider.envVars.map((envVar) => (
-                    <span key={envVar} className="rounded-md border border-white/10 px-2 py-1 font-mono text-xs">
+                    <span key={envVar} className="rounded-md border border-white/10 bg-white/5 px-2 py-1 font-mono text-xs text-vv-primary">
                       {envVar}
                     </span>
                   ))}
@@ -192,11 +191,11 @@ export default function ApiKeysPage() {
       </div>
 
       <div className="bg-vv-surface/50 rounded-xl border border-white/5 p-5 backdrop-blur-sm">
-        <h3 className="text-vv-secondary mb-3 text-sm font-bold">Developer Setup Checklist</h3>
+        <h3 className="text-vv-secondary mb-3 text-sm font-bold">System Setup Protocol</h3>
         <ol className="text-vv-muted list-decimal space-y-2 pl-5 text-sm">
-          <li>Add provider keys in <code>.env.local</code>.</li>
-          <li>Restart the dev server with <code>pnpm --filter @videoviber/web dev:reset</code>.</li>
-          <li>Reload this page and confirm providers show <code>Env Configured</code>.</li>
+          <li>Inject provider keys into <code className="text-vv-primary bg-white/5 px-1.5 py-0.5 rounded font-mono text-[11px]">.env.local</code>.</li>
+          <li>Reboot the dev server via <code className="text-vv-primary bg-white/5 px-1.5 py-0.5 rounded font-mono text-[11px]">pnpm --filter @videoviber/web dev:reset</code>.</li>
+          <li>Reload this console and confirm engines read <code className="text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono text-[11px]">Env Configured</code>.</li>
         </ol>
       </div>
 

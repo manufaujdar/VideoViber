@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MotionImage } from '@/components/motion-image';
+import { featureFlow, featureTracks } from '@/features/marketing';
 import { providerCatalog } from '@/lib/providers';
 
 export const metadata: Metadata = {
@@ -9,69 +10,18 @@ export const metadata: Metadata = {
     'Cinematic workflow capabilities across planning, generation, timeline direction, and provider orchestration.',
 };
 
-const featureTracks = [
-  {
-    title: 'Mission-Based Shot Planning',
-    detail:
-      'Turn a creative brief into ordered shots with clear intent, duration, and provider routing before you start generating.',
-    metric: 'Structured shot map in one flow',
-  },
-  {
-    title: 'Continuity-Ready Workspace',
-    detail:
-      'Carry character tone, setting cues, and visual language through your sequence instead of re-prompting every frame.',
-    metric: 'State-aware project evolution',
-  },
-  {
-    title: 'Timeline-First Editing',
-    detail:
-      'Move from generated shots into timeline composition with direct clip context and deterministic status updates.',
-    metric: 'Single route from draft to export',
-  },
-  {
-    title: 'Provider Diagnostics Built-In',
-    detail:
-      'Inspect provider readiness and environment configuration from UI using runtime health reporting.',
-    metric: 'No hidden adapter state',
-  },
-];
-
-const flow = [
-  {
-    step: '01',
-    title: 'Define Intent',
-    text: 'Describe narrative, pacing, and camera language in one prompt block.',
-  },
-  {
-    step: '02',
-    title: 'Plan Shot Deck',
-    text: 'Generate an ordered shot list with editable prompts and durations.',
-  },
-  {
-    step: '03',
-    title: 'Generate Variants',
-    text: 'Run selected shots through available providers and monitor status live.',
-  },
-  {
-    step: '04',
-    title: 'Cut the Sequence',
-    text: 'Assemble completed clips in timeline view and export the rough cut.',
-  },
-];
-
 export default function FeaturesPage() {
   return (
     <section className="vv-page-shell">
       <div className="vv-page-content max-w-6xl">
         <header className="vv-page-hero">
-          <p className="vv-page-eyebrow">Platform Features</p>
+          <p className="vv-page-eyebrow">Pro Capabilities</p>
           <h1 className="vv-page-title">
-            Cinematic tools organized as a
-            <span className="gradient-text"> production system.</span>
+            Absolute creation.
+            <span className="gradient-text"> Zero friction.</span>
           </h1>
           <p className="vv-page-subtitle">
-            VideoViber keeps planning, generation, and editing in one continuous workflow so teams
-            can ship faster without losing creative control.
+            VideoViber orchestrates every phase of the cinematic process. From conceptual spark to pristine final cut, in one seamless environment.
           </p>
         </header>
 
@@ -91,18 +41,17 @@ export default function FeaturesPage() {
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(1,5,12,0.08),rgba(1,5,12,0.78))]" />
             </div>
             <div className="p-7">
-              <h2 className="text-xl font-semibold">Live Command Deck</h2>
-              <p className="text-vv-secondary mt-3 text-sm leading-relaxed">
-                The interface is built to feel like a directing cockpit: shot state, provider
-                selection, and timeline context stay visible while you iterate.
+              <h2 className="text-2xl font-semibold tracking-tight">Command Center</h2>
+              <p className="text-vv-secondary mt-3 text-base leading-relaxed">
+                Total situational awareness. Your timeline, provider selection, and shot state are instantly accessible, giving you uncompromising control over the final product.
               </p>
             </div>
           </article>
 
-          <article className="vv-card animate-slide-up delay-100 rounded-3xl p-7">
-            <h2 className="text-xl font-semibold">Execution Flow</h2>
+          <article className="vv-card animate-slide-up delay-100 rounded-3xl p-7 flex flex-col justify-center">
+            <h2 className="text-2xl font-semibold tracking-tight">Complete Pipeline</h2>
             <div className="mt-4 space-y-4">
-              {flow.map((item) => (
+              {featureFlow.map((item) => (
                 <div key={item.step} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-cyan-200 text-xs font-semibold tracking-[0.12em]">STEP {item.step}</p>
                   <h3 className="mt-1 text-sm font-semibold">{item.title}</h3>
@@ -126,10 +75,9 @@ export default function FeaturesPage() {
         <section className="vv-card animate-slide-up delay-300 mt-8 rounded-3xl p-7">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold">Provider Matrix</h2>
-              <p className="text-vv-secondary mt-2 text-sm leading-relaxed">
-                Current provider catalog is exposed directly in code and reflected in runtime
-                diagnostics.
+              <h2 className="text-2xl font-semibold tracking-tight">Engine Integration</h2>
+              <p className="text-vv-secondary mt-2 text-base leading-relaxed">
+                Current provider catalog is exposed directly in code and reflected in runtime diagnostics. The ultimate transparent architecture.
               </p>
             </div>
             <Link href="/settings/keys" className="vv-btn-secondary px-4 py-2 text-xs">

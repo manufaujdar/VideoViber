@@ -1,26 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAppStore, type Asset } from '@/app/store';
+import { useAppStore, type Asset } from '@/features/workspace';
+import { uploadAssetFile } from '@/lib/asset-upload';
 import { MotionImage } from '@/components/motion-image';
 import { toast } from 'sonner';
-
-const IMAGE_DATA_URL_LIMIT_BYTES = 4 * 1024 * 1024;
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to read file'));
-      }
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-}
 
 function readImageMetadata(url: string): Promise<{ width?: number; height?: number }> {
   return new Promise((resolve) => {
@@ -81,45 +65,48 @@ export default function AssetsPage() {
       let skipped = 0;
 
       for (const file of incoming) {
-        let objectUrl: string | null = null;
+        let metadataUrl: string | null = null;
         try {
+          if (!file.type.startsWith('video/') && !file.type.startsWith('image/')) {
+            skipped += 1;
+            continue;
+          }
+
+          metadataUrl = URL.createObjectURL(file);
+          const uploaded = await uploadAssetFile(file);
+
           if (file.type.startsWith('video/')) {
-            objectUrl = URL.createObjectURL(file);
-            const metadata = await readVideoMetadata(objectUrl);
+            const metadata = await readVideoMetadata(metadataUrl);
             addAsset({
               name: file.name,
               type: 'video',
-              url: objectUrl,
+              url: uploaded.url,
+              storagePath: uploaded.storagePath,
               size: file.size,
               width: metadata.width,
               height: metadata.height,
               duration: metadata.duration,
               mimeType: file.type || 'video/mp4',
-              storageMode: 'object-url',
-              volatile: true,
+              storageMode: 'remote-url',
+              volatile: false,
             } satisfies Omit<Asset, 'id' | 'createdAt'>);
             imported += 1;
             continue;
           }
 
           if (file.type.startsWith('image/')) {
-            const useDataUrl = file.size <= IMAGE_DATA_URL_LIMIT_BYTES;
-            objectUrl = useDataUrl ? null : URL.createObjectURL(file);
-            const url = useDataUrl ? await fileToDataUrl(file) : objectUrl;
-            if (!url) {
-              throw new Error('Failed to load image URL');
-            }
-            const metadata = await readImageMetadata(url);
+            const metadata = await readImageMetadata(metadataUrl);
             addAsset({
               name: file.name,
               type: 'image',
-              url,
+              url: uploaded.url,
+              storagePath: uploaded.storagePath,
               size: file.size,
               width: metadata.width,
               height: metadata.height,
               mimeType: file.type || 'image/jpeg',
-              storageMode: useDataUrl ? 'data-url' : 'object-url',
-              volatile: !useDataUrl,
+              storageMode: 'remote-url',
+              volatile: false,
             } satisfies Omit<Asset, 'id' | 'createdAt'>);
             imported += 1;
             continue;
@@ -127,10 +114,12 @@ export default function AssetsPage() {
 
           skipped += 1;
         } catch {
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-          }
           skipped += 1;
+          continue;
+        } finally {
+          if (metadataUrl) {
+            URL.revokeObjectURL(metadataUrl);
+          }
         }
       }
 
