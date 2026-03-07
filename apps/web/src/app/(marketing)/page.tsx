@@ -24,6 +24,13 @@ export default function MarketingHomePage() {
 
   const [scrollRatio, setScrollRatio] = useState(0.18);
   const [selectedModeId, setSelectedModeId] = useState(defaultMode.id);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(
+      document.cookie.includes('admin_bypass=true') || document.cookie.includes('-auth-token=')
+    );
+  }, []);
 
   useEffect(() => {
     let frame: number | null = null;
@@ -401,9 +408,15 @@ export default function MarketingHomePage() {
             Unprecedented depth, relentless velocity, and unmistakable visual identity. The ultimate studio upgrade is waiting.
           </p>
           <div className={styles.ctaRowCenter}>
-            <Link href="/signup" className={styles.primaryButton}>
-              Enter VideoViber
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard" className={styles.primaryButton}>
+                Go to Dashboard
+              </Link>
+            ) : (
+              <Link href="/signup" className={styles.primaryButton}>
+                Enter VideoViber
+              </Link>
+            )}
             <Link href="/pricing" className={styles.ghostButton}>
               Explore Plans
             </Link>

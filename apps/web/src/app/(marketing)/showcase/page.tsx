@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 
 export const metadata: Metadata = {
   title: 'Showcase | VideoViber',
@@ -58,6 +59,11 @@ const DUMMY_RENDERS = [
 ];
 
 export default function ShowcasePage() {
+  const cookieStore = cookies();
+  const isLoggedIn =
+    cookieStore.get('admin_bypass')?.value === 'true' ||
+    cookieStore.getAll().some((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#02040a] pb-24 pt-32">
       {/* Background Gradients */}
@@ -75,9 +81,15 @@ export default function ShowcasePage() {
             A curated gallery of scenes rendered through the VideoViber engine. Witness the fidelity of true continuity mapping and semantic editing parameters.
           </p>
           <div className="mt-10 flex justify-center gap-4">
-            <Link href="/login" className="vv-btn-primary px-8 py-3.5 text-sm font-medium">
-              Initialize Scene
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard" className="vv-btn-primary px-8 py-3.5 text-sm font-medium">
+                Go to Dashboard
+              </Link>
+            ) : (
+              <Link href="/login" className="vv-btn-primary px-8 py-3.5 text-sm font-medium">
+                Initialize Scene
+              </Link>
+            )}
             <Link href="/features" className="vv-btn-secondary px-8 py-3.5 text-sm font-medium">
               Explore Engine
             </Link>

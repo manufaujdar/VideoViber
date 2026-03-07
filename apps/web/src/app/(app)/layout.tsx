@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useAppStore, useWorkspaceBootstrap, workspaceSelectors } from '@/features/workspace';
 import { BrandLogo } from '@/components/brand-logo';
 import { isSupabaseConfigured } from '@/lib/supabase-browser';
@@ -13,18 +13,8 @@ const navItems = [
     href: '/dashboard',
     label: 'Dashboard',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
       </svg>
     ),
   },
@@ -32,18 +22,8 @@ const navItems = [
     href: '/projects',
     label: 'Projects',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
       </svg>
     ),
   },
@@ -51,18 +31,8 @@ const navItems = [
     href: '/assets',
     label: 'Assets',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v13.5a2.25 2.25 0 002.25 2.25z"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v13.5a2.25 2.25 0 002.25 2.25z" />
       </svg>
     ),
   },
@@ -70,18 +40,8 @@ const navItems = [
     href: '/generations',
     label: 'Generations',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.015 4.356v4.992"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.015 4.356v4.992" />
       </svg>
     ),
   },
@@ -89,7 +49,7 @@ const navItems = [
     href: '/audio-studio',
     label: 'Audio Studio',
     icon: (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
       </svg>
     ),
@@ -98,7 +58,7 @@ const navItems = [
     href: '/media-library',
     label: 'Media Library',
     icon: (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-2.625 0V4.125c0-.621.504-1.125 1.125-1.125h15.75c.621 0 1.125.504 1.125 1.125v14.25c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m16.5 0h-1.5m0 0h-13.5m13.5 0v-3.375c0-.621-.504-1.125-1.125-1.125h-2.25c-.621 0-1.125.504-1.125 1.125v3.375" />
       </svg>
     ),
@@ -110,18 +70,8 @@ const accountNavItems = [
     href: '/settings',
     label: 'Settings',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
@@ -130,7 +80,7 @@ const accountNavItems = [
     href: '/settings/billing',
     label: 'Billing',
     icon: (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V4.245c0-.754-.726-1.294-1.453-1.096a60.07 60.07 0 01-15.797 2.101c-.699.156-1.203.766-1.203 1.479v10.54c0 .713.504 1.323 1.203 1.479z" />
       </svg>
     ),
@@ -139,7 +89,7 @@ const accountNavItems = [
     href: '/settings/team',
     label: 'Team',
     icon: (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
       </svg>
     ),
@@ -148,18 +98,8 @@ const accountNavItems = [
     href: '/settings/keys',
     label: 'API Keys',
     icon: (
-      <svg
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-        />
+      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
       </svg>
     ),
   },
@@ -167,40 +107,160 @@ const accountNavItems = [
 
 type NavItem = (typeof navItems)[number];
 
+// Tooltip wrapper for collapsed mode
+function NavTooltip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="group/tooltip relative flex">
+      {children}
+      <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md border border-white/10 bg-[#0B1422] px-2.5 py-1.5 text-xs font-medium text-vv-primary opacity-0 shadow-xl shadow-black/50 transition-opacity duration-150 group-hover/tooltip:opacity-100">
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function NavLink({
   item,
   isActive,
+  collapsed,
   onNavigate,
 }: {
   item: NavItem;
   isActive: boolean;
+  collapsed: boolean;
   onNavigate?: () => void;
 }) {
-  return (
+  const link = (
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200
-        ${
-          isActive
-            ? 'bg-accent/10 text-accent shadow-accent/5 shadow-sm'
-            : 'text-vv-secondary hover:text-vv-primary hover:bg-white/[0.03]'
-        }`}
+      title={collapsed ? item.label : undefined}
+      className={`group flex items-center gap-3 rounded-lg transition-all duration-200 ${
+        collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
+      } text-sm font-medium ${
+        isActive
+          ? 'bg-accent/10 text-accent shadow-accent/5 shadow-sm'
+          : 'text-vv-secondary hover:text-vv-primary hover:bg-white/[0.03]'
+      }`}
     >
-      <span
-        className={`transition-colors ${isActive ? 'text-accent' : 'text-vv-muted group-hover:text-vv-secondary'}`}
-      >
+      <span className={`transition-colors ${isActive ? 'text-accent' : 'text-vv-muted group-hover:text-vv-secondary'}`}>
         {item.icon}
       </span>
-      {item.label}
-      {isActive && (
-        <div className="bg-accent shadow-accent/50 ml-auto h-1.5 w-1.5 rounded-full shadow-sm" />
+      {!collapsed && (
+        <>
+          <span className="truncate">{item.label}</span>
+          {isActive && <div className="bg-accent shadow-accent/50 ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full shadow-sm" />}
+        </>
       )}
     </Link>
   );
+
+  if (collapsed) {
+    return <NavTooltip label={item.label}>{link}</NavTooltip>;
+  }
+  return link;
 }
 
-function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
+function UserDropdown({
+  displayName,
+  projectCount,
+  collapsed,
+  onNavigate,
+}: {
+  displayName: string;
+  projectCount: number;
+  collapsed: boolean;
+  onNavigate: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('click', handleClickOutside, true);
+    return () => {
+      document.removeEventListener('click', handleClickOutside, true);
+    };
+  }, [isOpen]);
+
+  const avatarLetter = displayName ? displayName.charAt(0).toUpperCase() : 'U';
+
+  return (
+    <div className="border-t border-white/10 p-3" ref={dropdownRef}>
+      <div className="relative">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex w-full items-center rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03] ${
+            collapsed ? 'justify-center' : 'gap-3'
+          }`}
+          title={collapsed ? (displayName || 'Workspace Owner') : undefined}
+        >
+          <div className="from-accent/20 text-accent ring-accent/20 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br to-amber-300/20 text-sm font-bold ring-1">
+            {avatarLetter}
+          </div>
+          {!collapsed && (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{displayName || 'Workspace Owner'}</p>
+                <p className="text-vv-muted text-xs">{projectCount} active project(s)</p>
+              </div>
+              <svg
+                className={`text-vv-muted h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        {isOpen && (
+          <div className={`absolute ${collapsed ? 'left-full bottom-0 ml-2' : 'bottom-full left-0 mb-2'} z-50 w-52 origin-bottom-left rounded-xl border border-white/10 bg-[#0B1422] p-2 shadow-xl shadow-black/50`}>
+            <p className="text-vv-muted/60 mb-1 px-2 text-[10px] font-bold uppercase tracking-widest">
+              Account
+            </p>
+            <div className="flex flex-col space-y-0.5">
+              {accountNavItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    isActive={isActive}
+                    collapsed={false}
+                    onNavigate={() => {
+                      setIsOpen(false);
+                      onNavigate();
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({
+  mobileOpen,
+  collapsed,
+  onClose,
+  onToggleCollapse,
+}: {
+  mobileOpen: boolean;
+  collapsed: boolean;
+  onClose: () => void;
+  onToggleCollapse: () => void;
+}) {
   const pathname = usePathname();
   const displayName = useAppStore((state) => state.settings.displayName.trim());
   const projectCount = useAppStore(
@@ -213,79 +273,102 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
 
   return (
     <>
+      {/* Mobile overlay */}
       <div
         className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 md:hidden ${
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
       />
+
       <aside
-        className={`vv-sidebar-shell md:w-sidebar fixed left-0 top-0 z-50 flex h-screen w-[85vw] max-w-[280px] flex-col transition-transform duration-300 md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`vv-sidebar-shell fixed left-0 top-0 z-50 flex h-screen flex-col transition-all duration-300 ease-in-out
+          ${collapsed ? 'md:w-16' : 'md:w-sidebar'}
+          ${mobileOpen ? 'translate-x-0 w-[85vw] max-w-[280px]' : '-translate-x-full w-[85vw] max-w-[280px]'}
+          md:translate-x-0`}
       >
-        {/* Logo — clicks to home */}
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-          <BrandLogo href="/" wordmarkClassName="text-[0.82rem] tracking-[0.17em]" />
+        {/* Header row */}
+        <div className={`flex h-16 items-center border-b border-white/10 ${collapsed ? 'justify-center px-2' : 'justify-between px-5'}`}>
+          {!collapsed && <BrandLogo href="/" wordmarkClassName="text-[0.82rem] tracking-[0.17em]" />}
+          {collapsed && (
+            <Link href="/" className="flex h-8 w-8 items-center justify-center text-vv-primary" aria-label="Home">
+              <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
+                <polygon points="8,6 26,16 8,26" fill="currentColor" opacity="0.9" />
+              </svg>
+            </Link>
+          )}
+          {/* Mobile close */}
           <button
             onClick={onClose}
             className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:hidden"
             aria-label="Close sidebar"
           >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Desktop collapse toggle */}
+          <button
+            onClick={onToggleCollapse}
+            className="text-vv-muted hover:text-vv-primary hidden h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:flex"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
             <svg
-              className="h-4 w-4"
+              className={`h-3.5 w-3.5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={2.5}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
         </div>
 
         {/* Main Nav */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          <p className="text-vv-muted/60 mb-2 px-3 text-[10px] font-bold uppercase tracking-widest">
-            Workspace
-          </p>
+        <nav className={`flex-1 space-y-0.5 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
+          {!collapsed && (
+            <p className="text-vv-muted/60 mb-2 px-3 text-[10px] font-bold uppercase tracking-widest">
+              Workspace
+            </p>
+          )}
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return <NavLink key={item.href} item={item} isActive={isActive} onNavigate={onClose} />;
+            return (
+              <NavLink
+                key={item.href}
+                item={item}
+                isActive={isActive}
+                collapsed={collapsed}
+                onNavigate={onClose}
+              />
+            );
           })}
         </nav>
 
-        {/* Account Section — pushed to bottom */}
-        <div className="border-t border-white/10 px-3 py-3">
-          <p className="text-vv-muted/60 mb-2 px-3 text-[10px] font-bold uppercase tracking-widest">
-            Account
-          </p>
-          {accountNavItems.map((item) => {
-            const isActive = pathname === item.href;
-            return <NavLink key={item.href} item={item} isActive={isActive} onNavigate={onClose} />;
-          })}
-        </div>
-
-        {/* User */}
-        <div className="border-t border-white/10 p-4">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]">
-            <div className="from-accent/20 text-accent ring-accent/20 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br to-amber-300/20 text-sm font-bold ring-1">
-              U
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
-                {displayName || 'Workspace Owner'}
-              </p>
-              <p className="text-vv-muted text-xs">{projectCount} active project(s)</p>
-            </div>
-          </div>
-        </div>
+        {/* User / Account dropdown */}
+        <UserDropdown
+          displayName={displayName}
+          projectCount={projectCount}
+          collapsed={collapsed}
+          onNavigate={onClose}
+        />
       </aside>
     </>
   );
 }
 
-function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
+function TopBar({
+  onOpenSidebar,
+  onToggleCollapse,
+  sidebarCollapsed,
+}: {
+  onOpenSidebar: () => void;
+  onToggleCollapse: () => void;
+  sidebarCollapsed: boolean;
+}) {
   const pathname = usePathname();
 
   const pageTitle = useMemo(() => {
@@ -305,25 +388,31 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   return (
     <header className="vv-topbar-shell sticky top-0 z-40 flex h-14 items-center justify-between px-4 sm:px-6">
       <div className="flex items-center gap-3">
+        {/* Mobile open button */}
         <button
           className="text-vv-muted hover:text-vv-primary flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:hidden"
           onClick={onOpenSidebar}
           aria-label="Open sidebar"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"
-            />
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15" />
           </svg>
         </button>
+
+        {/* Desktop sidebar toggle in topbar (visible when collapsed) */}
+        {sidebarCollapsed && (
+          <button
+            onClick={onToggleCollapse}
+            className="text-vv-muted hover:text-vv-primary hidden h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.03] md:flex"
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        )}
+
         <BrandLogo href="/" compact className="md:hidden" />
         <div>
           <p className="text-sm font-semibold">{pageTitle}</p>
@@ -343,18 +432,8 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
           aria-label="Open generations"
           title="Open generations"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-            />
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
           </svg>
         </Link>
       </div>
@@ -364,12 +443,31 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const initialized = useAppStore(workspaceSelectors.initialized);
   const initializing = useAppStore(workspaceSelectors.initializing);
   const backendReady = useAppStore(workspaceSelectors.backendReady);
   const lastSyncError = useAppStore(workspaceSelectors.lastSyncError);
   const refreshWorkspace = useAppStore((state) => state.refreshWorkspace);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  // Load persisted collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vv-sidebar-collapsed');
+      if (saved === 'true') setSidebarCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleCollapse = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('vv-sidebar-collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   useWorkspaceBootstrap();
 
@@ -378,9 +476,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {!showBackendGate && <Sidebar mobileOpen={sidebarOpen} onClose={closeSidebar} />}
-      <div className={`${showBackendGate ? '' : 'md:ml-sidebar'} flex flex-1 flex-col`}>
-        {!showBackendGate && <TopBar onOpenSidebar={() => setSidebarOpen(true)} />}
+      {!showBackendGate && (
+        <Sidebar
+          mobileOpen={sidebarOpen}
+          collapsed={sidebarCollapsed}
+          onClose={closeSidebar}
+          onToggleCollapse={toggleCollapse}
+        />
+      )}
+      <div
+        className={`flex flex-1 flex-col transition-all duration-300 ease-in-out ${
+          showBackendGate
+            ? ''
+            : sidebarCollapsed
+            ? 'md:ml-16'
+            : 'md:ml-sidebar'
+        }`}
+      >
+        {!showBackendGate && (
+          <TopBar
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onToggleCollapse={toggleCollapse}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+        )}
         <main className="flex-1 p-4 sm:p-6">
           {loadingShell ? (
             <div className="flex h-full min-h-[60vh] items-center justify-center">

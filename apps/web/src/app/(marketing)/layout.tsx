@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { BrandLogo } from '@/components/brand-logo';
 import {
   marketingFooterLinks,
@@ -15,6 +16,11 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies();
+  const isLoggedIn =
+    cookieStore.get('admin_bypass')?.value === 'true' ||
+    cookieStore.getAll().some((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+
   return (
     <div className="relative min-h-screen overflow-x-clip bg-[#03060d] text-vv-primary">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(1000px_620px_at_0%_0%,rgba(71,197,255,0.18),transparent_60%),radial-gradient(920px_580px_at_95%_6%,rgba(255,167,103,0.12),transparent_62%),linear-gradient(180deg,#03060d_0%,#050913_45%,#02040a_100%)]" />
@@ -37,18 +43,29 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </ul>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <Link
-              href="/login"
-              className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] text-vv-primary transition-all hover:bg-white/10 sm:inline-flex"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="vv-btn-primary px-4 py-2 text-xs uppercase tracking-[0.1em] md:px-5"
-            >
-              Enter Studio
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="vv-btn-primary px-4 py-2 text-xs uppercase tracking-[0.1em] md:px-5"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] text-vv-primary transition-all hover:bg-white/10 sm:inline-flex"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="vv-btn-primary px-4 py-2 text-xs uppercase tracking-[0.1em] md:px-5"
+                >
+                  Enter Studio
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </header>
