@@ -1,6 +1,7 @@
 # VideoViber
 
-> **Agentic spec-driven video workspace** — from vague creative intent to an editable first cut.
+> **AI-assisted video vibe generation and editing workspace** — from vague
+> creative intent to an editable first cut.
 
 VideoViber is not a thin wrapper around one video provider. It's a **structured workspace** that converts a creative brief into a scene breakdown, shot list, and assembled timeline using multiple AI video generation providers.
 
