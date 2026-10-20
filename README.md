@@ -2,13 +2,15 @@
 
 > **Agentic spec-driven video workspace** — from vague creative intent to an editable first cut.
 
+[Documentation map](docs/DOCUMENTATION_INDEX.md) · [Development guide](docs/development.md) · [Runtime readiness audit](docs/architecture/production-readiness-audit.md)
+
 VideoViber is not a thin wrapper around one video provider. It's a **structured workspace** that converts a creative brief into a scene breakdown, shot list, and assembled timeline using multiple AI video generation providers.
 
 ---
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                         Vercel                               │
 │  ┌────────────────────────────────────────────────────────┐  │
@@ -51,9 +53,9 @@ VideoViber is not a thin wrapper around one video provider. It's a **structured 
 # Prerequisites: Node.js 20.x, pnpm 10.x
 
 # 1. Clone and install
-git clone https://github.com/your-org/VideoViber.git
+git clone https://github.com/manufaujdar/VideoViber.git
 cd VideoViber
-pnpm install
+pnpm install --frozen-lockfile
 
 # 2. Configure environment
 cp .env.example .env.local
@@ -87,10 +89,12 @@ pnpm security:scan-secrets
 
 ## Repo Structure
 
-```
+```text
 VideoViber/
 ├── apps/
-│   └── web/                  # Next.js App Router frontend
+│   ├── web/                  # Next.js App Router frontend
+│   ├── mobile/               # Future mobile wrapper scaffold
+│   └── desktop/              # Future desktop wrapper scaffold
 ├── packages/
 │   ├── ui/                   # Design tokens & shared components
 │   ├── config/               # Shared TS config, env validation
