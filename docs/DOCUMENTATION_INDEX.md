@@ -6,12 +6,13 @@ called open source unless ownership and licensing are intentionally changed.
 
 ## Authoritative documents
 
-- README.md and BRAND_GUIDELINES.md: product, brand, setup, and status.
-- docs/prd/: vision, MVP scope, user flows, and feature matrix.
-- docs/architecture/: system, entities, state, frontend, cross-platform, and readiness.
-- docs/ux/: design principles.
-- docs/technical-overview.md: code and technology map.
-- apps/*/README.md, packages/*/src, and supabase/: executable contracts and migrations.
+- [README](../README.md) and [brand guidelines](../BRAND_GUIDELINES.md): product, brand, setup, and status.
+- [Development guide](development.md): workspace ownership, exact pnpm pin and quality commands.
+- [Product requirements](prd/): vision, MVP scope, user flows, and feature matrix.
+- [Architecture](architecture/): system, entities, state, frontend, cross-platform, and readiness.
+- [Interaction design](ux/): design principles.
+- [Technical overview](technical-overview.md): code and technology map.
+- [Web app](../apps/web/), [shared packages](../packages/) and [Supabase](../supabase/): executable contracts and migrations.
 
 ## Initial documentation set
 
